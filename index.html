@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LINEスタンプ 個別URL一覧</title>
+<style>
+:root{color-scheme:dark;--bg:#10151d;--panel:#1a2330;--line:#303d4e;--text:#edf3fa;--muted:#9eacbd;--accent:#06c755}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1100px;margin:32px auto;padding:0 18px}h1{font-size:25px;margin:0 0 8px}.sub{color:var(--muted);margin:0 0 22px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}
+label{display:block;font-weight:650;margin:0 0 7px}input,textarea,button{font:inherit;border-radius:9px;border:1px solid var(--line);padding:11px 12px;background:#111923;color:var(--text)}
+input{width:100%;max-width:520px}textarea{width:100%;min-height:110px;resize:vertical}
+button{cursor:pointer;background:var(--accent);border-color:var(--accent);color:#062b13;font-weight:750}button.secondary{background:#263446;border-color:#40536a;color:var(--text)}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.hint,.status{color:var(--muted);font-size:13px}.status{margin-top:10px;white-space:pre-wrap}.error{color:#ff9d9d}.success{color:#8be3a8}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}th{color:#b9c8d9;font-size:13px}td a{color:#85c8ff;overflow-wrap:anywhere}.preview{width:76px;height:76px;object-fit:contain;background:#0d131b;border-radius:8px}.urlcell{max-width:310px}.smallbtn{padding:6px 9px;font-size:12px;margin-top:5px}.hidden{display:none}.count{font-weight:700;color:#8be3a8}
+select{font:inherit;border-radius:9px;border:1px solid #40536a;padding:11px 12px;background:#111923;color:var(--text)}
+summary{cursor:pointer;font-weight:650}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}.hit{background:#111923;border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:13px}.hit img{width:100%;height:110px;object-fit:contain;background:#0d131b;border-radius:8px}.hit b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+</style>
+</head>
+<body>
+<main>
+<h1>LINEスタンプ 個別URL一覧</h1>
+<p class="sub">スタンプセットIDを入力すると、各スタンプの個別ID・静止画URL・アニメーションURLを一覧化します。</p>
+
+<section class="panel">
+<label for="q">キーワードで検索</label>
+<div class="actions" style="margin-top:0">
+<input id="q" placeholder="例: ねこ、あいさつ、敬語" style="max-width:340px">
+<select id="cat"><option value="sticker">スタンプ</option><option value="emoji">絵文字</option></select>
+<select id="stype"><option value="ALL">すべて</option><option value="OFFICIAL">公式</option><option value="CREATORS">クリエイターズ</option></select>
+<button id="searchBtn">検索</button>
+<button class="secondary" id="diagBtn">接続テスト</button>
+</div>
+<p class="hint">検索はLINE STOREの非公式な検索APIを使います。ブラウザから直接取得できない場合は、公開されている第三者のプロキシ（Hugging Face Space）を経由します。その場合、検索キーワードがそのサーバーに送られます。ただしこのサーバーは日本国外にあるため、日本国内限定の公式スタンプなどは出ません。出したい場合は、下の「日本の一覧で検索する」で自分用の中継を設定してください。</p>
+<details><summary class="hint">日本の一覧で検索する（自分用の検索中継を設定）</summary>
+<p class="hint">LINE STOREは接続元の国で商品一覧が変わります。日本で動く小さな中継を自分で用意し、そのURLを下に入力すると、日本の一覧（公式の日本限定スタンプを含む）で検索できます。方法A: Cloudflare Workers（無料。Workers &amp; Pages → Create → Hello World → Edit code に貼り付け → Deploy。表示されたURLを入力）。方法C: Vercel（東京。スマホ可）。方法B: 自分のPCで動かす（保存して <code>python proxy.py</code> を実行し、http://127.0.0.1:8787 を入力。Chromeで許可を求められたら許可）。</p>
+<label for="proxyUrl">中継URL</label>
+<div class="actions" style="margin-top:0"><input id="proxyUrl" placeholder="https://xxxx.workers.dev"><button class="secondary" id="proxySave">保存</button></div>
+<p class="hint">方法A: Cloudflare Workersのコード</p>
+<textarea id="workerCode" readonly style="min-height:110px"></textarea>
+<div class="actions"><button class="secondary" id="workerCopy">コードをコピー</button></div>
+<p class="hint">方法B: proxy.py</p>
+<textarea id="pyCode" readonly style="min-height:110px"></textarea>
+<div class="actions"><button class="secondary" id="pyCopy">コードをコピー</button></div>
+<p class="hint">方法C: Vercel（東京リージョン）。スマホだけでも設定できます。GitHubに新しいリポジトリを作り、次の2つのファイルを追加します（ファイル名は <code>vercel.json</code> と <code>api/search/[cat].js</code>。GitHubのファイル名欄に「api/search/[cat].js」と入力するとフォルダも作られます）。VercelのAdd New → ProjectでそのリポジトリをImportしてDeployし、発行された <code>xxxx.vercel.app</code> のURLを上の中継URLに入力します。ログインを求められる場合は、Settings → Deployment ProtectionでVercel Authenticationをオフにしてください。</p>
+<textarea id="vercelJson" readonly style="min-height:60px"></textarea>
+<div class="actions"><button class="secondary" id="vjCopy">vercel.json をコピー</button></div>
+<textarea id="vercelFn" readonly style="min-height:150px"></textarea>
+<div class="actions"><button class="secondary" id="vfCopy">api/search/[cat].js をコピー</button></div>
+</details>
+<div id="searchStatus" class="status"></div>
+<details><summary class="hint">検索結果の生データ（表示がおかしいときの確認用）</summary><textarea id="rawOut" readonly style="min-height:160px"></textarea></details>
+<div id="hits" class="grid"></div>
+<div class="actions"><button class="secondary hidden" id="moreBtn">さらに表示</button></div>
+</section>
+
+<section class="panel">
+<label for="packId">スタンプ／絵文字のセットID または LINE STORE URL</label>
+<input id="packId" placeholder="例: 15497 または https://store.line.me/emojishop/product/（ID）/ja">
+<div class="actions">
+<button id="fetchBtn">メタデータを取得</button>
+</div>
+<div id="status" class="status">最初にメタデータの取得を試します。ブラウザ側のCORS制限で失敗する場合は、下の貼り付け欄を使用してください。</div>
+</section>
+
+<details class="panel">
+<summary>メタデータJSONを手動で貼り付ける（自動取得できない場合）</summary>
+<p class="hint">スタンプは productInfo.meta、絵文字は meta.json をブラウザで開き、表示されたJSON全文をコピーしてここに貼り付け、「JSONから一覧を作成」を押してください。</p>
+<textarea id="metaText" placeholder='{"title":...,"stickers":[{"id":...}, ...]}'></textarea>
+<div class="actions"><button id="parseBtn">JSONから一覧を作成</button></div>
+</details>
+
+<section class="panel hidden" id="results">
+<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+<div><strong>取得結果</strong>　<span id="count" class="count"></span></div>
+<div class="actions" style="margin:0">
+<button class="secondary" id="csvBtn">CSVを保存</button>
+<button class="secondary" id="copyBtn">URL一覧をコピー</button>
+</div>
+</div>
+<p class="hint">静止画・アニメーションの両方のURLを表示します。スタンプの種類によっては片方が存在しない、または別形式の場合があります。リンク先で実際に確認してください。</p>
+<div class="tablewrap">
+<table><thead><tr><th>プレビュー</th><th>個別ID</th><th>静止画URL</th><th>アニメーションURL</th><th>変換</th></tr></thead><tbody id="rows"></tbody></table>
+</div>
+</section>
+
+<section class="panel">
+<strong>アニメーション変換（APNG → GIF / WebP）</strong>
+<p class="hint">アニメーションURLのAPNGは、画像アプリやLINEの画像送信では静止画になります。一般的な形式に変換して保存します。GIFは透過が1bit（半透明は不可）、WebPはChromeなどWebPエンコード対応ブラウザで利用できます。CORSで取得できない場合は、保存済みのAPNGファイルを選択してください。</p>
+<div class="actions">
+<select id="fmt"><option value="gif">GIF</option><option value="webp">アニメーションWebP</option></select>
+<button class="secondary" id="zipBtn">一覧をまとめて変換（ZIP）</button>
+<button class="secondary" id="fileBtn">手元のAPNGを変換…</button>
+<input type="file" id="fileIn" accept="image/png,.png,.apng" multiple class="hidden">
+</div>
+<div id="convStatus" class="status"></div>
+</section>
+
+<section class="panel">
+<strong>使用しているURL形式</strong>
+<p class="hint">静止画: /iPhone/sticker@2x.png<br>アニメーション: /iPhone/sticker_animation@2x.png?v=1</p>
+<p class="hint">このページはLINEの公式APIではなく、公開されているLINE CDNのメタデータ形式を利用します。取得できない場合は、ネットワーク制限・CORS・配信仕様変更などが考えられます。</p>
+</section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let current = [];
+function extractPackId(value){
+  const s=value.trim();
+  let m=s.match(/emojishop\/product\/([0-9a-f]{24})/i)||s.match(/^([0-9a-f]{24})$/i);
+  if(m)return{kind:"emoji",id:m[1].toLowerCase()};
+  m=s.match(/(?:stickershop\/product\/|line\.me\/S\/sticker\/|^)(\d{3,})(?:\/|$)/);
+  return m?{kind:"sticker",id:m[1]}:null;
+}
+function setStatus(msg,kind=""){ $("status").className="status "+kind; $("status").textContent=msg; }
+function buildRows(data){
+  if(typeof data==="string") data=JSON.parse(data);
+  let items;
+  if(data&&Array.isArray(data.stickers)){
+    const ids=[...new Set(data.stickers.map(x=>String(x.id??"")).filter(x=>/^\d+$/.test(x)))];
+    const known="hasAnimation" in data||"stickerResourceType" in data,anim=data.hasAnimation===true||/ANIMATION/.test(data.stickerResourceType||"");
+    items=ids.map(id=>{const b=`https://stickershop.line-scdn.net/stickershop/v1/sticker/${id}/iPhone/`;return{id,staticUrl:b+"sticker@2x.png",animationUrl:(known&&!anim)?"":b+"sticker_animation@2x.png?v=1",probe:!known}});
+  }else if(data&&data.productId&&Array.isArray(data.orders)){
+    const b=`https://stickershop.line-scdn.net/sticonshop/v1/sticon/${data.productId}/iPhone/`,anim=data.sticonResourceType==="ANIMATION";
+    items=data.orders.map(o=>String(o).padStart(3,"0")).map(i=>({id:i,staticUrl:b+i+".png",animationUrl:anim?b+i+"_animation.png":""}));
+  }else throw new Error("JSON内に stickers 配列（スタンプ）または orders 配列（絵文字）が見つかりません。");
+  if(!items.length) throw new Error("個別IDが見つかりませんでした。");
+  renderRows(items);
+  setStatus(`成功：${items.length}件を取得しました。`,"success");
+}
+function renderRows(items){
+  current=items;$("rows").innerHTML="";
+  for(const item of current){
+    const tr=document.createElement("tr");
+    const preview=document.createElement("img");preview.className="preview";preview.loading="lazy";preview.src=item.staticUrl;preview.alt="ID "+item.id;
+    preview.onerror=()=>{preview.alt="画像なし";preview.removeAttribute("src");};
+    const id=document.createElement("td");id.textContent=item.id;
+    function linkCell(url,label,kind){
+      const td=document.createElement("td");td.className="urlcell";
+      if(!url){td.textContent="—";return td}
+      const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=label;a.title=url;
+      const copy=document.createElement("button");copy.className="smallbtn secondary";copy.textContent=kind==="anim"?"アニメーションをコピー":"画像をコピー";
+      copy.onclick=async()=>{const t=copy.textContent;copy.disabled=true;
+        try{cst(kind==="anim"?"GIFに変換してコピー中…":"コピー中…");await(kind==="anim"?copyAnim(url):copyImage(url));copy.textContent="コピーしました";cst("クリップボードにコピーしました。","success")}
+        catch(e){cst("コピーできませんでした: "+e.message,"error")}
+        setTimeout(()=>{copy.textContent=t;copy.disabled=false},1500)};
+      td.append(a,document.createElement("br"),copy);return td;
+    }
+    const p=document.createElement("td");p.append(preview);
+    const ta=linkCell(item.animationUrl,"アニメーションを開く","anim"),tc=convCell(item);
+    tr.append(p,id,linkCell(item.staticUrl,"静止画を開く","img"),ta,tc);
+    if(item.probe&&item.animationUrl){const im=new Image();im.onerror=()=>{item.animationUrl="";ta.replaceWith(linkCell("",""));tc.replaceWith(convCell(item))};im.src=item.animationUrl}
+    $("rows").append(tr);
+  }
+  $("count").textContent=`${current.length}件`;
+  $("results").classList.remove("hidden");
+}
+async function fetchMeta(){
+  const t=extractPackId($("packId").value);
+  if(!t){setStatus("セットID、またはLINE STOREのURLを入力してください。","error");return;}
+  const url=t.kind==="emoji"?`https://stickershop.line-scdn.net/sticonshop/v1/sticon/${t.id}/iPhone/meta.json`:`https://stickershop.line-scdn.net/stickershop/v1/product/${t.id}/iphone/productInfo.meta`;
+  setStatus("メタデータを取得中…");
+  try{
+    const res=await fetch(url,{mode:"cors",cache:"no-store"});
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data=await res.json();
+    $("metaText").value=JSON.stringify(data,null,2);
+    buildRows(data);
+  }catch(e){
+    setStatus(`自動取得に失敗しました: ${e.message}\nブラウザのCORS制限などが原因の可能性があります。\n次の手順で手動取得してください:\n1. メタデータURLを別タブで開く\n2. JSON全文をコピー\n3. 「メタデータJSONを手動で貼り付ける」を開いて貼り付け、「JSONから一覧を作成」を押す\n\n${url}`,"error");
+  }
+}
+/*PURE_START*/
+const pack=(...f)=>{const o=[];for(const[n,v]of f)for(let i=0;i<n;i++)o.push(Math.floor(v/2**(8*i))&255);return new Uint8Array(o)};
+const cat=a=>{const r=new Uint8Array(a.reduce((s,x)=>s+x.length,0));let p=0;for(const x of a){r.set(x,p);p+=x.length}return r};
+const ascii=s=>Uint8Array.from(s,c=>c.charCodeAt(0));
+function quant(px,n){
+  const cnt=new Map();
+  for(let i=0;i<n*4;i+=4){if(px[i+3]<128)continue;const k=(px[i]>>3<<10)|(px[i+1]>>3<<5)|(px[i+2]>>3);cnt.set(k,(cnt.get(k)||0)+1)}
+  const ch=(k,c)=>(k>>(10-5*c))&31,boxes=[[...cnt]];
+  while(boxes.length<255){
+    let bi=-1,bs=1;boxes.forEach((b,i)=>{if(b.length>bs){bs=b.length;bi=i}});
+    if(bi<0)break;
+    const b=boxes[bi];let best=0,br=-1;
+    for(let c=0;c<3;c++){let lo=31,hi=0;for(const[k]of b){const v=ch(k,c);if(v<lo)lo=v;if(v>hi)hi=v}if(hi-lo>br){br=hi-lo;best=c}}
+    b.sort((x,y)=>ch(x[0],best)-ch(y[0],best));
+    const tot=b.reduce((s,e)=>s+e[1],0);let acc=0,m=0;
+    for(;m<b.length-2;m++){acc+=b[m][1];if(acc>=tot/2)break}
+    boxes.splice(bi,1,b.slice(0,m+1),b.slice(m+1));
+  }
+  const pal=new Uint8Array(768),map=new Map();
+  boxes.forEach((b,i)=>{if(!b.length)return;let t=0;const s=[0,0,0];
+    for(const[k,c]of b){t+=c;for(let j=0;j<3;j++)s[j]+=ch(k,j)*c;map.set(k,i+1)}
+    for(let j=0;j<3;j++)pal[(i+1)*3+j]=Math.min(255,Math.round(s[j]/t)*8+4)});
+  const idx=new Uint8Array(n);
+  for(let i=0;i<n;i++){const o=i*4;if(px[o+3]<128)continue;idx[i]=map.get((px[o]>>3<<10)|(px[o+1]>>3<<5)|(px[o+2]>>3))}
+  return{idx,pal};
+}
+function lzw(idx){
+  const clr=256,eoi=257;let size=9,next=258,cur=0,bits=0;const dict=new Map(),o=[];
+  const emit=c=>{cur|=c<<bits;bits+=size;while(bits>=8){o.push(cur&255);cur>>>=8;bits-=8}};
+  emit(clr);let pre=idx[0];
+  for(let i=1;i<idx.length;i++){
+    const k=idx[i],key=pre<<8|k,v=dict.get(key);
+    if(v!==undefined){pre=v;continue}
+    emit(pre);
+    if(next>(1<<size)-1&&size<12)size++;
+    if(next<4096)dict.set(key,next++);else{emit(clr);size=9;next=258;dict.clear()}
+    pre=k;
+  }
+  emit(pre);emit(eoi);if(bits>0)o.push(cur&255);return o;
+}
+function encodeGif(frames,w,h){
+  const out=[ascii("GIF89a"),pack([2,w],[2,h],[1,0],[1,0],[1,0]),
+    Uint8Array.from([0x21,0xFF,0x0B,...ascii("NETSCAPE2.0"),3,1,0,0,0])];
+  for(const f of frames){
+    const{idx,pal}=quant(f.data.data,w*h),cs=Math.max(2,Math.round(f.delay/10));
+    out.push(pack([1,0x21],[1,0xF9],[1,4],[1,0x09],[2,cs],[1,0],[1,0]),pack([1,0x2C],[2,0],[2,0],[2,w],[2,h],[1,0x87]),pal,Uint8Array.of(8));
+    const d=lzw(idx),blk=[];
+    for(let i=0;i<d.length;i+=255){const c=d.slice(i,i+255);blk.push(c.length,...c)}
+    blk.push(0);out.push(Uint8Array.from(blk));
+  }
+  out.push(Uint8Array.of(0x3B));
+  return new Blob(out,{type:"image/gif"});
+}
+const CT=new Uint32Array(256).map((_,n)=>{let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;return c>>>0});
+const crc32=u=>{let c=-1;for(const b of u)c=CT[(c^b)&255]^(c>>>8);return(c^-1)>>>0};
+function zip(files){
+  const parts=[],cd=[];let off=0;
+  for(const f of files){
+    const nm=new TextEncoder().encode(f.name),crc=crc32(f.data),s=f.data.length;
+    const lh=pack([4,0x04034b50],[2,20],[2,0x800],[2,0],[2,0],[2,0x21],[4,crc],[4,s],[4,s],[2,nm.length],[2,0]);
+    parts.push(lh,nm,f.data);
+    cd.push(pack([4,0x02014b50],[2,20],[2,20],[2,0x800],[2,0],[2,0],[2,0x21],[4,crc],[4,s],[4,s],[2,nm.length],[2,0],[2,0],[2,0],[2,0],[4,0],[4,off]),nm);
+    off+=lh.length+nm.length+s;
+  }
+  const cdl=cd.reduce((a,x)=>a+x.length,0);
+  return new Blob([...parts,...cd,pack([4,0x06054b50],[2,0],[2,0],[2,files.length],[2,files.length],[4,cdl],[4,off],[2,0])],{type:"application/zip"});
+}
+/*PURE_END*/
+const chunk=(t,d)=>cat([ascii(t),pack([4,d.length]),d,new Uint8Array(d.length&1)]);
+async function encodeWebp(frames,w,h){
+  const cv=document.createElement("canvas");cv.width=w;cv.height=h;const cx=cv.getContext("2d"),body=[];
+  for(const f of frames){
+    cx.putImageData(f.data,0,0);
+    const bl=await new Promise(r=>cv.toBlob(r,"image/webp",1));
+    if(!bl||bl.type!=="image/webp")throw new Error("このブラウザはWebPの書き出しに対応していません。Chromeを使うか、GIFを選択してください。");
+    const u=new Uint8Array(await bl.arrayBuffer()),parts=[];let p=12;
+    while(p<u.length){const sz=(u[p+4]|u[p+5]<<8|u[p+6]<<16|u[p+7]<<24)>>>0,len=8+sz+(sz&1);
+      if(String.fromCharCode(...u.subarray(p,p+4))!=="VP8X")parts.push(u.subarray(p,Math.min(p+len,u.length)));p+=len}
+    body.push(chunk("ANMF",cat([pack([3,0],[3,0],[3,w-1],[3,h-1],[3,Math.max(1,Math.round(f.delay))],[1,3]),...parts])));
+  }
+  const inner=cat([ascii("WEBP"),chunk("VP8X",pack([1,0x12],[3,0],[3,w-1],[3,h-1])),chunk("ANIM",pack([4,0],[2,0])),...body]);
+  return new Blob([ascii("RIFF"),pack([4,inner.length]),inner],{type:"image/webp"});
+}
+async function decodeApng(buf){
+  if(!("ImageDecoder" in window))throw new Error("このブラウザはAPNGのデコード（ImageDecoder）に対応していません。最新のChrome / Edge / Safariで開いてください。");
+  const d=new ImageDecoder({data:buf,type:"image/png"});
+  await d.tracks.ready;await d.completed;
+  const n=d.tracks.selectedTrack.frameCount,frames=[];let cv,cx,w,h;
+  for(let i=0;i<n;i++){
+    const{image}=await d.decode({frameIndex:i,completeFramesOnly:true});
+    if(!cv){w=image.displayWidth;h=image.displayHeight;cv=document.createElement("canvas");cv.width=w;cv.height=h;cx=cv.getContext("2d",{willReadFrequently:true})}
+    cx.clearRect(0,0,w,h);cx.drawImage(image,0,0);
+    frames.push({data:cx.getImageData(0,0,w,h),delay:(image.duration||100000)/1000});image.close();
+  }
+  d.close();return{frames,w,h};
+}
+async function convertBuf(buf,fmt){const{frames,w,h}=await decodeApng(buf);return fmt==="webp"?encodeWebp(frames,w,h):encodeGif(frames,w,h)}
+async function fetchBuf(url){
+  let res;try{res=await fetch(url,{mode:"cors"})}catch(e){throw new Error("取得できませんでした（CORS制限の可能性）。APNGを保存して「手元のAPNGを変換…」を使ってください。")}
+  if(!res.ok)throw new Error(`HTTP ${res.status}（このスタンプにアニメーションがない可能性があります）`);
+  return res.arrayBuffer();
+}
+async function copyImage(url){
+  const blob=await(await fetch(url,{mode:"cors"})).blob(),bmp=await createImageBitmap(blob);
+  const cv=document.createElement("canvas");cv.width=bmp.width;cv.height=bmp.height;cv.getContext("2d").drawImage(bmp,0,0);
+  const png=await new Promise(r=>cv.toBlob(r,"image/png"));
+  await navigator.clipboard.write([new ClipboardItem({"image/png":png})]);
+}
+async function copyAnim(url){
+  const gif=await convertBuf(await fetchBuf(url),"gif");
+  if(window.ClipboardItem&&ClipboardItem.supports&&ClipboardItem.supports("image/gif")){await navigator.clipboard.write([new ClipboardItem({"image/gif":gif})]);return}
+  const uri=await new Promise((r,j)=>{const f=new FileReader();f.onload=()=>r(f.result);f.onerror=j;f.readAsDataURL(gif)});
+  await navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([`<img src="${uri}">`],{type:"text/html"}),"text/plain":new Blob([url],{type:"text/plain"})})]);
+}
+const cst=(m,k="")=>{$("convStatus").className="status "+k;$("convStatus").textContent=m};
+function save(b,name){const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
+function convCell(item){
+  const td=document.createElement("td"),b=document.createElement("button");
+  b.className="smallbtn";b.textContent="変換して保存";if(!item.animationUrl){td.textContent="—";return td}
+  b.onclick=async()=>{b.disabled=true;const f=$("fmt").value;cst(`${item.id} を変換中…`);
+    try{save(await convertBuf(await fetchBuf(item.animationUrl),f),`${item.id}.${f}`);cst(`${item.id}.${f} を保存しました。`,"success")}
+    catch(e){cst(`${item.id}: ${e.message}`,"error")}b.disabled=false};
+  td.append(b);return td;
+}
+async function toFile(blob,name){return{name,data:new Uint8Array(await blob.arrayBuffer())}}
+$("zipBtn").onclick=async()=>{
+  if(!current.length){cst("先にスタンプ一覧を作成してください。","error");return}
+  const f=$("fmt").value,files=[];let ng=0,last="";
+  const list=current.filter(x=>x.animationUrl);
+  for(const[i,it]of list.entries()){
+    cst(`変換中 ${i+1}/${list.length}`);
+    try{files.push(await toFile(await convertBuf(await fetchBuf(it.animationUrl),f),`${it.id}.${f}`))}catch(e){ng++;last=e.message}
+  }
+  if(!files.length){cst(`変換できませんでした: ${last}`,"error");return}
+  save(zip(files),`line-stickers-${f}.zip`);
+  cst(`${files.length}件を保存しました。`+(ng?`\n${ng}件は失敗しました（${last}）`:""),ng?"error":"success");
+};
+$("fileBtn").onclick=()=>$("fileIn").click();
+$("fileIn").onchange=async e=>{
+  const f=$("fmt").value,files=[];let ng=0,last="";
+  for(const[i,file]of[...e.target.files].entries()){
+    cst(`変換中 ${i+1}/${e.target.files.length}`);
+    try{files.push(await toFile(await convertBuf(await file.arrayBuffer(),f),file.name.replace(/\.[^.]+$/,"")+"."+f))}catch(err){ng++;last=err.message}
+  }
+  e.target.value="";
+  if(!files.length){cst(`変換できませんでした: ${last}`,"error");return}
+  if(files.length===1)save(new Blob([files[0].data]),files[0].name);else save(zip(files),`converted-${f}.zip`);
+  cst(`${files.length}件を保存しました。`+(ng?`\n${ng}件は失敗しました（${last}）`:""),ng?"error":"success");
+};
+
+const PAGE=24;let sOffset=0,sQuery="";
+const ss=(m,k="")=>{$("searchStatus").className="status "+k;$("searchStatus").textContent=m};
+const idOf=o=>o.id??o.productId??o.packageId??o.product_id;
+const titleOf=o=>{const t=o.title??o.name??o.productName??"";return t&&typeof t==="object"?(t.ja||t.en||Object.values(t)[0]||""):String(t)};
+const norm=x=>String(x).normalize("NFKC").toLowerCase().replace(/[\s・･·\-]/g,"");
+function pickItems(j,cat,q){
+  const ok=cat==="emoji"?/^[0-9a-f]{20,}$/i:/^\d+$/,cands=[];
+  (function walk(x,d,path){
+    if(!x||typeof x!=="object"||d>6)return;
+    if(Array.isArray(x)){const good=x.filter(o=>o&&typeof o==="object"&&ok.test(String(idOf(o)??"")));if(good.length)cands.push({good,path});else x.forEach((v,i)=>walk(v,d+1,path+"["+i+"]"));return}
+    for(const[k,v]of Object.entries(x))walk(v,d+1,path?path+"."+k:k);
+  })(j,0,"");
+  const nq=norm(q),score=c=>c.good.filter(o=>norm(JSON.stringify(o)).includes(nq)).length,pri=c=>/(^|\.)(items|products|stickers|list|results?|packages)$/i.test(c.path)?1:0;
+  cands.sort((a,b)=>score(b)-score(a)||pri(b)-pri(a)||b.good.length-a.good.length);
+  const hit=cands.filter(c=>score(c)>0),use=hit.length?hit:(cands[0]?[cands[0]]:[]),seen=new Set(),items=[];
+  for(const c of use)for(const o of c.good){const id=String(idOf(o));if(seen.has(id))continue;seen.add(id);items.push({id,title:titleOf(o),sub:o.subtype||"",icon:(o.listIcon&&o.listIcon.src)||"",price:typeof(o.priceString??o.price)==="string"?(o.priceString??o.price):""})}
+  items.sort((a,b)=>(norm(b.title).includes(nq)?1:0)-(norm(a.title).includes(nq)?1:0));
+  return{items,path:use.map(c=>c.path||"(root)").join(" + "),paths:cands.map(x=>`${x.path||"(root)"}: ${x.good.length}件、キーワード一致 ${score(x)}件`)};
+}
+function addHits(items,cat){
+  for(const it of items){
+    const d=document.createElement("div");d.className="hit";
+    const img=new Image();img.loading="lazy";img.alt=it.title;
+    img.src=it.icon||((it.kind||cat)==="emoji"?`https://stickershop.line-scdn.net/sticonshop/v1/product/${it.id}/iPhone/main.png`:`https://stickershop.line-scdn.net/stickershop/v1/product/${it.id}/LINEStorePC/main.png`);
+    img.onerror=()=>img.removeAttribute("src");
+    const b=document.createElement("b");b.textContent=it.title||it.id;
+    const sp=document.createElement("span");sp.className="hint";
+    sp.textContent=it.id+(it.sub==="OFFICIAL"?"・公式":it.sub==="CREATORS"?"・クリエイターズ":"")+(it.price?"・"+it.price:"");
+    const btn=document.createElement("button");btn.className="smallbtn";btn.textContent="個別URL一覧を作成";
+    btn.onclick=async()=>{$("packId").value=it.id;await fetchMeta();if(!$("results").classList.contains("hidden"))$("results").scrollIntoView({behavior:"smooth"})};
+    d.append(img,b,sp,btn);$("hits").append(d);
+  }
+}
+const shown=new Set();let directOk=true;
+async function runSearch(more){
+  const q=$("q").value.trim();
+  if(!q){ss("キーワードを入力してください。","error");return}
+  const cat=$("cat").value,type=$("stype").value;
+  if(!more){sOffset=0;sQuery=q;$("hits").innerHTML="";$("moreBtn").classList.add("hidden");shown.clear()}
+  ss("検索中…");
+  const enc=encodeURIComponent(sQuery),qs=`offset=${sOffset}&limit=${PAGE}`;
+  const types=type==="ALL"?["ALL","OFFICIAL","CREATORS"]:[type];
+  const bases=[];
+  if(proxyUrl())bases.push({kind:"mine",mk:t=>`${proxyUrl()}/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`});
+  if(directOk)bases.push({kind:"direct",mk:t=>`https://store.line.me/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`});
+  bases.push({kind:"hf",mk:t=>`https://daydreamer-json-line-stamp-api-proxy.hf.space/api/search?category=${cat}&type=${t}&query=${enc}&${qs}&lang=ja`});
+  const items=[],errs=[],raw=[];let full=false;
+  for(const t of types){
+    for(const bs of bases){
+      const u=bs.mk(t);
+      try{
+        const r=await fetch(u,bs.kind==="mine"?{}:{headers:{"Accept-Language":"ja"}});if(!r.ok)throw new Error("HTTP "+r.status);
+        const j=await r.json(),info=pickItems(j,cat,sQuery);
+        raw.push(`# type=${t} 取得元: ${bs.kind==="mine"?"自分用の中継":new URL(u).host}\n配列: ${info.paths.join(" / ")||"なし"}\n`+JSON.stringify(j,null,1).slice(0,3000));
+        for(const it of info.items)if(!shown.has(it.id)){shown.add(it.id);items.push(it)}
+        if(info.items.length>=PAGE)full=true;
+        break;
+      }catch(e){if(bs.kind==="direct")directOk=false;errs.push(`${t} ${bs.kind==="mine"?"自分用の中継":new URL(u).host}: ${e.message}`)}
+    }
+  }
+  $("rawOut").value=(errs.length?"エラー:\n"+errs.join("\n")+"\n\n":"")+raw.join("\n\n");
+  if(!items.length){
+    ss(raw.length?(more?"これ以上の結果はありません。":"該当なし、または結果の形式を解釈できませんでした。"):`検索できませんでした。\n${errs.join("\n")}\nLINE STOREのWebサイトやアプリで検索し、商品ページのURLを下の入力欄に貼り付けてください。`,raw.length?"":"error");
+    return;
+  }
+  sOffset+=PAGE;
+  const nq=norm(sQuery),rank=o=>(norm(o.title).includes(nq)?2:0)+(o.sub==="OFFICIAL"?1:0);
+  items.sort((a,b)=>rank(b)-rank(a));
+  addHits(items,cat);
+  ss(`${$("hits").children.length}件表示中（価格表示の例: ${(items.find(x=>x.price)||{}).price||"不明"}／取得元: ${raw.length?raw[0].split("\n")[0].replace(/^.*取得元: /,""):""}）`,"success");
+  $("moreBtn").classList.toggle("hidden",!full);
+}
+function proxyUrl(){try{return(localStorage.getItem("lineProxy")||"").trim().replace(/\/+$/,"")}catch(e){return""}}
+const WORKER_CODE=String.raw`export default {
+  async fetch(req) {
+    const cors = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*"};
+    if (req.method === "OPTIONS") return new Response(null, {headers: cors});
+    const u = new URL(req.url);
+    if (!u.pathname.startsWith("/api/search/")) return new Response("not found", {status: 404, headers: cors});
+    const r = await fetch("https://store.line.me" + u.pathname + u.search, {headers: {"Accept-Language": "ja-JP,ja;q=0.9", "User-Agent": "Mozilla/5.0"}});
+    return new Response(r.body, {status: r.status, headers: {...cors, "Content-Type": "application/json"}});
+  }
+};`;
+const PY_CODE=String.raw`import http.server, urllib.request
+
+class H(http.server.BaseHTTPRequestHandler):
+    def cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+
+    def do_OPTIONS(self):
+        self.send_response(204); self.cors(); self.end_headers()
+
+    def do_GET(self):
+        if not self.path.startswith("/api/search/"):
+            self.send_response(404); self.cors(); self.end_headers(); return
+        req = urllib.request.Request("https://store.line.me" + self.path,
+            headers={"Accept-Language": "ja-JP,ja;q=0.9", "User-Agent": "Mozilla/5.0"})
+        try:
+            body, code = urllib.request.urlopen(req).read(), 200
+        except Exception as e:
+            body, code = str(e).encode(), 502
+        self.send_response(code); self.cors()
+        self.send_header("Content-Type", "application/json"); self.end_headers()
+        self.wfile.write(body)
+
+http.server.HTTPServer(("127.0.0.1", 8787), H).serve_forever()`;
+$("workerCode").value=WORKER_CODE;$("pyCode").value=PY_CODE;$("proxyUrl").value=proxyUrl();
+$("workerCopy").onclick=()=>navigator.clipboard.writeText(WORKER_CODE).then(()=>ss("コードをコピーしました。","success"));
+$("pyCopy").onclick=()=>navigator.clipboard.writeText(PY_CODE).then(()=>ss("コードをコピーしました。","success"));
+const VERCEL_JSON=String.raw`{
+  "regions": ["hnd1"]
+}`;
+const VERCEL_FN=String.raw`module.exports = async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  if (req.method === "OPTIONS") return res.status(204).end();
+  const u = new URL(req.url, "http://localhost");
+  const cat = u.pathname.split("/").pop();
+  if (!["sticker", "emoji", "theme", "family"].includes(cat)) return res.status(404).send("not found");
+  const r = await fetch("https://store.line.me/api/search/" + cat + u.search, {
+    headers: { "Accept-Language": "ja-JP,ja;q=0.9", "User-Agent": "Mozilla/5.0" },
+  });
+  res.status(r.status).setHeader("Content-Type", "application/json");
+  res.send(await r.text());
+};`;
+$("vercelJson").value=VERCEL_JSON;$("vercelFn").value=VERCEL_FN;
+$("vjCopy").onclick=()=>navigator.clipboard.writeText(VERCEL_JSON).then(()=>ss("vercel.json をコピーしました。","success"));
+$("vfCopy").onclick=()=>navigator.clipboard.writeText(VERCEL_FN).then(()=>ss("api/search/[cat].js をコピーしました。","success"));
+$("proxySave").onclick=()=>{try{localStorage.setItem("lineProxy",$("proxyUrl").value.trim());ss("中継URLを保存しました。","success")}catch(e){ss("このブラウザでは保存できませんでした（今回のみ有効）。","error")}};
+async function diag(){
+  const q=$("q").value.trim()||"セーラームーン",cat=$("cat").value,enc=encodeURIComponent(q),qs="offset=0&limit=24",lines=[];
+  const srcs=[["自分用の中継",proxyUrl()?t=>`${proxyUrl()}/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`:null],
+    ["直接",t=>`https://store.line.me/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`],
+    ["第三者プロキシ",t=>`https://daydreamer-json-line-stamp-api-proxy.hf.space/api/search?category=${cat}&type=${t}&query=${enc}&${qs}&lang=ja`]];
+  ss("接続テスト中…");
+  for(const[name,mk]of srcs){
+    if(!mk){lines.push(`[${name}] 未設定`);continue}
+    for(const t of["ALL","OFFICIAL","CREATORS"]){
+      try{
+        const r=await fetch(mk(t)),txt=await r.text();let j;
+        try{j=JSON.parse(txt)}catch(e){lines.push(`[${name}] ${t}: HTTP ${r.status} JSON以外: ${txt.slice(0,80)}`);continue}
+        const it=Array.isArray(j.items)?j.items:[];
+        lines.push(`[${name}] ${t}: HTTP ${r.status} 件数=${j.totalCount} 価格例=${(it[0]||{}).priceString||"-"} 先頭=${it.slice(0,3).map(x=>titleOf(x)).join(" / ")}`);
+      }catch(e){lines.push(`[${name}] ${t}: ${e.message}`)}
+    }
+  }
+  $("rawOut").value=lines.join("\n");$("rawOut").closest("details").open=true;
+  ss("接続テストの結果を「検索結果の生データ」に表示しました。","success");
+}
+$("diagBtn").onclick=diag;
+$("searchBtn").onclick=()=>runSearch(false);
+$("moreBtn").onclick=()=>runSearch(true);
+$("q").onkeydown=e=>{if(e.key==="Enter"&&!e.isComposing)runSearch(false)};
+$("fetchBtn").onclick=fetchMeta;
+$("parseBtn").onclick=()=>{try{buildRows($("metaText").value)}catch(e){setStatus("解析エラー: "+e.message,"error")}};
+$("copyBtn").onclick=()=>navigator.clipboard.writeText(current.map(x=>`${x.id}\t${x.staticUrl}\t${x.animationUrl}`).join("\n")).then(()=>setStatus("URL一覧をコピーしました。","success"));
+$("csvBtn").onclick=()=>{
+  const q=v=>'"'+String(v).replaceAll('"','""')+'"';
+  const csv=["個別ID,静止画URL,アニメーションURL",...current.map(x=>[x.id,x.staticUrl,x.animationUrl].map(q).join(","))].join("\r\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="line-sticker-urls.csv";a.click();URL.revokeObjectURL(a.href);
+};
+</script>
+</body>
+</html>
