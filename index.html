@@ -13,10 +13,12 @@ label{display:block;font-weight:650;margin:0 0 7px}input,textarea,button{font:in
 input{width:100%;max-width:520px}textarea{width:100%;min-height:110px;resize:vertical}
 button{cursor:pointer;background:var(--accent);border-color:var(--accent);color:#062b13;font-weight:750}button.secondary{background:#263446;border-color:#40536a;color:var(--text)}
 .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.hint,.status{color:var(--muted);font-size:13px}.status{margin-top:10px;white-space:pre-wrap}.error{color:#ff9d9d}.success{color:#8be3a8}
-.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}th{color:#b9c8d9;font-size:13px}td a{color:#85c8ff;overflow-wrap:anywhere}.preview{width:76px;height:76px;object-fit:contain;background:#0d131b;border-radius:8px}.urlcell{max-width:310px}.smallbtn{padding:6px 9px;font-size:12px;margin-top:5px}.hidden{display:none}.count{font-weight:700;color:#8be3a8}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}th{color:#b9c8d9;font-size:13px}td a{color:#85c8ff;overflow-wrap:anywhere}.preview{width:76px;height:76px;object-fit:contain;background:#0d131b;border-radius:8px}.urlcell{max-width:310px}.smallbtn{padding:6px 9px;font-size:12px;margin-top:5px}.hidden{display:none}.count{font-weight:700;color:#8be3a8}
 select{font:inherit;border-radius:9px;border:1px solid #40536a;padding:11px 12px;background:#111923;color:var(--text)}
 summary{cursor:pointer;font-weight:650}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}.hit{background:#111923;border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:13px}.hit img{width:100%;height:110px;object-fit:contain;background:#0d131b;border-radius:8px}.hit b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 details details{margin-top:14px}
+html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel{min-width:0}.panel{overflow-wrap:anywhere}img,table,textarea,input,select{max-width:100%}
+.tablewrap{overflow:visible}.act{width:100%}.act .smallbtn{display:block;width:100%;margin:0 0 6px;text-align:center}.links a{display:inline-block;margin:0 10px 0 0;font-size:12px}.idcell{font-size:12px;color:var(--muted);word-break:break-all;width:78px}.preview{width:64px;height:64px}
 </style>
 </head>
 <body>
@@ -41,7 +43,7 @@ details details{margin-top:14px}
 <label for="packId">スタンプ／絵文字のセットID または LINE STORE URL</label>
 <input id="packId" placeholder="例: 15497 または https://store.line.me/emojishop/product/（ID）/ja">
 <div class="actions">
-<button id="fetchBtn">メタデータを取得</button>
+<button id="fetchBtn">画像一覧を取得</button>
 </div>
 <div id="status" class="status">最初にメタデータの取得を試します。ブラウザ側のCORS制限で失敗する場合は、ページ下部の「高度な設定」にある貼り付け欄を使用してください。</div>
 </section>
@@ -56,7 +58,7 @@ details details{margin-top:14px}
 </div>
 <p class="hint">静止画・アニメーションの両方のURLを表示します。スタンプの種類によっては片方が存在しない、または別形式の場合があります。リンク先で実際に確認してください。</p>
 <div class="tablewrap">
-<table><thead><tr><th>プレビュー</th><th>個別ID</th><th>静止画URL</th><th>アニメーションURL</th><th>変換</th></tr></thead><tbody id="rows"></tbody></table>
+<table><thead><tr><th>プレビュー</th><th>操作</th><th>個別ID</th></tr></thead><tbody id="rows"></tbody></table>
 </div>
 </section>
 
@@ -140,25 +142,28 @@ function renderRows(items){
   current=items;$("rows").innerHTML="";
   for(const item of current){
     const tr=document.createElement("tr");
-    const preview=document.createElement("img");preview.className="preview";preview.loading="lazy";preview.src=item.staticUrl;preview.alt="ID "+item.id;
-    preview.onerror=()=>{preview.alt="画像なし";preview.removeAttribute("src");};
-    const id=document.createElement("td");id.textContent=item.id;
-    function linkCell(url,label,kind){
-      const td=document.createElement("td");td.className="urlcell";
-      if(!url){td.textContent="—";return td}
-      const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=label;a.title=url;
-      const copy=document.createElement("button");copy.className="smallbtn secondary";copy.textContent=kind==="anim"?"アニメーションをコピー":"画像をコピー";
-      copy.onclick=async()=>{const t=copy.textContent;copy.disabled=true;
-        try{cst(kind==="anim"?"GIFに変換してコピー中…":"コピー中…");await(kind==="anim"?copyAnim(url):copyImage(url));copy.textContent="コピーしました";cst("クリップボードにコピーしました。","success")}
-        catch(e){cst("コピーできませんでした: "+e.message,"error")}
-        setTimeout(()=>{copy.textContent=t;copy.disabled=false},1500)};
-      td.append(a,document.createElement("br"),copy);return td;
+    const p=document.createElement("td"),preview=document.createElement("img");
+    preview.className="preview";preview.loading="lazy";preview.src=item.staticUrl;preview.alt="ID "+item.id;
+    preview.onerror=()=>{preview.alt="画像なし";preview.removeAttribute("src")};p.append(preview);
+    const act=document.createElement("td");act.className="act";
+    const btn=(label,fn)=>{
+      const b=document.createElement("button");b.className="smallbtn secondary";b.textContent=label;
+      b.onclick=async()=>{b.disabled=true;try{cst(await fn(),"success");b.textContent="完了"}catch(e){cst(`${item.id}: ${e.message}`,"error")}setTimeout(()=>{b.textContent=label;b.disabled=false},1500)};
+      act.append(b);return b;
+    };
+    btn("画像をコピー",async()=>{cst("コピー中…");await copyImage(item.staticUrl);return "画像をコピーしました。"});
+    let ab,cb,al;
+    if(item.animationUrl){
+      ab=btn("アニメーションをコピー",async()=>{cst("GIFに変換してコピー中…");await copyAnim(item.animationUrl);return "アニメーションをコピーしました。"});
+      cb=btn("変換して保存",async()=>{const f=$("fmt").value;cst("変換中…");save(await convertBuf(await fetchBuf(item.animationUrl),f),`${item.id}.${f}`);return `${item.id}.${f} を保存しました。`});
     }
-    const p=document.createElement("td");p.append(preview);
-    const ta=linkCell(item.animationUrl,"アニメーションを開く","anim"),tc=convCell(item);
-    tr.append(p,id,linkCell(item.staticUrl,"静止画を開く","img"),ta,tc);
-    if(item.probe&&item.animationUrl){const im=new Image();im.onerror=()=>{item.animationUrl="";ta.replaceWith(linkCell("",""));tc.replaceWith(convCell(item))};im.src=item.animationUrl}
-    $("rows").append(tr);
+    const links=document.createElement("div");links.className="links";
+    const lk=(url,label)=>{const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=label;links.append(a);return a};
+    lk(item.staticUrl,"静止画を開く");if(item.animationUrl)al=lk(item.animationUrl,"アニメーションを開く");
+    act.append(links);
+    const id=document.createElement("td");id.className="idcell";id.textContent=item.id;
+    tr.append(p,act,id);$("rows").append(tr);
+    if(item.probe&&item.animationUrl){const im=new Image();im.onerror=()=>{item.animationUrl="";[ab,cb,al].forEach(x=>x&&x.remove())};im.src=item.animationUrl}
   }
   $("count").textContent=`${current.length}件`;
   $("results").classList.remove("hidden");
@@ -262,8 +267,7 @@ async function encodeWebp(frames,w,h){
   const inner=cat([ascii("WEBP"),chunk("VP8X",pack([1,0x12],[3,0],[3,w-1],[3,h-1])),chunk("ANIM",pack([4,0],[2,0])),...body]);
   return new Blob([ascii("RIFF"),pack([4,inner.length]),inner],{type:"image/webp"});
 }
-async function decodeApng(buf){
-  if(!("ImageDecoder" in window))throw new Error("このブラウザはAPNGのデコード（ImageDecoder）に対応していません。最新のChrome / Edge / Safariで開いてください。");
+async function decodeNative(buf){
   const d=new ImageDecoder({data:buf,type:"image/png"});
   await d.tracks.ready;await d.completed;
   const n=d.tracks.selectedTrack.frameCount,frames=[];let cv,cx,w,h;
@@ -275,34 +279,70 @@ async function decodeApng(buf){
   }
   d.close();return{frames,w,h};
 }
+const be32=n=>Uint8Array.of(n>>>24,(n>>>16)&255,(n>>>8)&255,n&255);
+const pngChunk=(t,d)=>{const tt=ascii(t);return cat([be32(d.length),tt,d,be32(crc32(cat([tt,d])))])};
+function apngFrames(buf){
+  const u=new Uint8Array(buf),dv=new DataView(buf),td=new TextDecoder(),keep=["PLTE","tRNS","gAMA","cHRM","sRGB","iCCP","sBIT"];
+  let p=8,ihdr=null;const extra=[],frames=[];let cur=null;
+  while(p+12<=u.length){
+    const len=dv.getUint32(p),type=td.decode(u.subarray(p+4,p+8)),d=u.subarray(p+8,p+8+len);
+    if(type==="IHDR")ihdr=d.slice();
+    else if(type==="fcTL"){cur={w:dv.getUint32(p+12),h:dv.getUint32(p+16),x:dv.getUint32(p+20),y:dv.getUint32(p+24),dn:dv.getUint16(p+28),dd:dv.getUint16(p+30),disp:u[p+32],blend:u[p+33],data:[]};frames.push(cur)}
+    else if(type==="IDAT"){if(cur)cur.data.push(d)}
+    else if(type==="fdAT"){if(cur)cur.data.push(d.subarray(4))}
+    else if(keep.includes(type))extra.push(u.subarray(p,p+12+len));
+    p+=12+len;
+  }
+  if(!ihdr||!frames.length)throw new Error("APNGとして読み込めませんでした。");
+  const W=dv.getUint32(16),H=dv.getUint32(20),sig=Uint8Array.of(137,80,78,71,13,10,26,10);
+  return{w:W,h:H,frames:frames.map(f=>{
+    const ih=ihdr.slice();ih.set(be32(f.w),0);ih.set(be32(f.h),4);
+    const png=cat([sig,pngChunk("IHDR",ih),...extra,...f.data.map(x=>pngChunk("IDAT",x)),pngChunk("IEND",new Uint8Array(0))]);
+    return{png,x:f.x,y:f.y,w:f.w,h:f.h,delay:f.dn/(f.dd||100)*1000,disp:f.disp,blend:f.blend};
+  })};
+}
+async function decodeManual(buf){
+  const{w,h,frames:fr}=apngFrames(buf),cv=document.createElement("canvas");cv.width=w;cv.height=h;
+  const cx=cv.getContext("2d",{willReadFrequently:true}),out=[];let prev=null,snap=null;
+  for(const f of fr){
+    if(prev){if(prev.disp===1)cx.clearRect(prev.x,prev.y,prev.w,prev.h);else if(prev.disp===2&&snap)cx.putImageData(snap,0,0)}
+    snap=f.disp===2?cx.getImageData(0,0,w,h):null;
+    const url=URL.createObjectURL(new Blob([f.png],{type:"image/png"})),im=new Image();
+    await new Promise((r,j)=>{im.onload=r;im.onerror=()=>j(new Error("フレームを読み込めませんでした。"));im.src=url});
+    URL.revokeObjectURL(url);
+    if(f.blend===0)cx.clearRect(f.x,f.y,f.w,f.h);
+    cx.drawImage(im,f.x,f.y);
+    out.push({data:cx.getImageData(0,0,w,h),delay:f.delay>0?f.delay:100});
+    prev=f;
+  }
+  return{frames:out,w,h};
+}
+async function decodeApng(buf){
+  if("ImageDecoder"in window){try{return await decodeNative(buf)}catch(e){}}
+  return decodeManual(buf);
+}
 async function convertBuf(buf,fmt){const{frames,w,h}=await decodeApng(buf);return fmt==="webp"?encodeWebp(frames,w,h):encodeGif(frames,w,h)}
 async function fetchBuf(url){
   let res;try{res=await fetch(url,{mode:"cors"})}catch(e){throw new Error("取得できませんでした（CORS制限の可能性）。APNGを保存して「手元のAPNGを変換…」を使ってください。")}
   if(!res.ok)throw new Error(`HTTP ${res.status}（このスタンプにアニメーションがない可能性があります）`);
   return res.arrayBuffer();
 }
-async function copyImage(url){
-  const blob=await(await fetch(url,{mode:"cors"})).blob(),bmp=await createImageBitmap(blob);
-  const cv=document.createElement("canvas");cv.width=bmp.width;cv.height=bmp.height;cv.getContext("2d").drawImage(bmp,0,0);
-  const png=await new Promise(r=>cv.toBlob(r,"image/png"));
-  await navigator.clipboard.write([new ClipboardItem({"image/png":png})]);
+function copyImage(url){
+  const png=(async()=>{
+    const bmp=await createImageBitmap(await(await fetch(url,{mode:"cors"})).blob());
+    const cv=document.createElement("canvas");cv.width=bmp.width;cv.height=bmp.height;cv.getContext("2d").drawImage(bmp,0,0);
+    return new Promise(r=>cv.toBlob(r,"image/png"));
+  })();
+  return navigator.clipboard.write([new ClipboardItem({"image/png":png})]);
 }
-async function copyAnim(url){
-  const gif=await convertBuf(await fetchBuf(url),"gif");
-  if(window.ClipboardItem&&ClipboardItem.supports&&ClipboardItem.supports("image/gif")){await navigator.clipboard.write([new ClipboardItem({"image/gif":gif})]);return}
-  const uri=await new Promise((r,j)=>{const f=new FileReader();f.onload=()=>r(f.result);f.onerror=j;f.readAsDataURL(gif)});
-  await navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([`<img src="${uri}">`],{type:"text/html"}),"text/plain":new Blob([url],{type:"text/plain"})})]);
+function copyAnim(url){
+  const gif=(async()=>convertBuf(await fetchBuf(url),"gif"))();
+  if(window.ClipboardItem&&ClipboardItem.supports&&ClipboardItem.supports("image/gif"))return navigator.clipboard.write([new ClipboardItem({"image/gif":gif})]);
+  const html=gif.then(g=>new Promise((r,j)=>{const f=new FileReader();f.onload=()=>r(new Blob([`<img src="${f.result}">`],{type:"text/html"}));f.onerror=j;f.readAsDataURL(g)}));
+  return navigator.clipboard.write([new ClipboardItem({"text/html":html,"text/plain":Promise.resolve(new Blob([url],{type:"text/plain"}))})]);
 }
 const cst=(m,k="")=>{$("convStatus").className="status "+k;$("convStatus").textContent=m};
 function save(b,name){const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
-function convCell(item){
-  const td=document.createElement("td"),b=document.createElement("button");
-  b.className="smallbtn";b.textContent="変換して保存";if(!item.animationUrl){td.textContent="—";return td}
-  b.onclick=async()=>{b.disabled=true;const f=$("fmt").value;cst(`${item.id} を変換中…`);
-    try{save(await convertBuf(await fetchBuf(item.animationUrl),f),`${item.id}.${f}`);cst(`${item.id}.${f} を保存しました。`,"success")}
-    catch(e){cst(`${item.id}: ${e.message}`,"error")}b.disabled=false};
-  td.append(b);return td;
-}
 async function toFile(blob,name){return{name,data:new Uint8Array(await blob.arrayBuffer())}}
 $("zipBtn").onclick=async()=>{
   if(!current.length){cst("先にスタンプ一覧を作成してください。","error");return}
