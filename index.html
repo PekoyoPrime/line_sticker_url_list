@@ -18,7 +18,7 @@ select{font:inherit;border-radius:9px;border:1px solid #40536a;padding:11px 12px
 summary{cursor:pointer;font-weight:650}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}.hit{background:#111923;border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:13px}.hit img{width:100%;height:110px;object-fit:contain;background:#0d131b;border-radius:8px}.hit b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 details details{margin-top:14px}
 html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel{min-width:0}.panel{overflow-wrap:anywhere}img,table,textarea,input,select{max-width:100%}
-.tablewrap{overflow:visible}.act{width:100%}.act .smallbtn{display:block;width:100%;margin:0 0 6px;text-align:center}.links a{display:inline-block;margin:0 10px 0 0;font-size:12px}.idcell{font-size:12px;color:var(--muted);word-break:break-all;width:78px}.preview{width:64px;height:64px}
+.tablewrap{overflow:visible}table{table-layout:fixed}th:nth-child(1),td:nth-child(1){width:90px}th:nth-child(3),td:nth-child(3){width:78px}.act .smallbtn{display:block;width:100%;margin:0 0 6px;text-align:center}.links a{display:inline-block;margin:0 10px 0 0;font-size:12px}.idcell{font-size:12px;color:var(--muted);word-break:break-all}.preview{width:76px;height:76px;max-width:none}
 </style>
 </head>
 <body>
@@ -138,6 +138,7 @@ function buildRows(data){
   renderRows(items);
   setStatus(`成功：${items.length}件を取得しました。`,"success");
 }
+const CAN_SHARE=(()=>{try{return typeof navigator.share==="function"&&typeof navigator.canShare==="function"&&navigator.canShare({files:[new File(["x"],"a.png",{type:"image/png"})]})}catch(e){return false}})();
 function renderRows(items){
   current=items;$("rows").innerHTML="";
   for(const item of current){
@@ -151,10 +152,30 @@ function renderRows(items){
       b.onclick=async()=>{b.disabled=true;try{cst(await fn(),"success");b.textContent="完了"}catch(e){cst(`${item.id}: ${e.message}`,"error")}setTimeout(()=>{b.textContent=label;b.disabled=false},1500)};
       act.append(b);return b;
     };
+    const shareBtn=(label,prep)=>{
+      const b=document.createElement("button");b.className="smallbtn secondary";b.textContent=label;let file=null;
+      b.onclick=async()=>{
+        b.disabled=true;
+        try{
+          if(!file){cst("共有の準備中…");file=await prep()}
+          if(!navigator.canShare({files:[file]}))throw new Error("このブラウザではこのファイルを共有できません。");
+          try{await navigator.share({files:[file]});cst("共有メニューを閉じました。","success")}
+          catch(e){
+            if(e.name==="AbortError")cst("共有をキャンセルしました。");
+            else if(e.name==="NotAllowedError"){b.textContent="もう一度押して共有";cst("準備ができました。もう一度ボタンを押すと共有メニューが開きます。");b.disabled=false;return}
+            else throw e;
+          }
+        }catch(e){cst(`${item.id}: ${e.message}`,"error")}
+        b.textContent=label;b.disabled=false;
+      };
+      act.append(b);return b;
+    };
     btn("画像をコピー",async()=>{cst("コピー中…");await copyImage(item.staticUrl);return "画像をコピーしました。"});
-    let ab,cb,al;
+    if(CAN_SHARE)shareBtn("画像を共有",async()=>new File([await(await fetch(item.staticUrl,{mode:"cors"})).blob()],`${item.id}.png`,{type:"image/png"}));
+    let ab,cb,al,sb;
     if(item.animationUrl){
       ab=btn("アニメーションをコピー",async()=>{cst("GIFに変換してコピー中…");await copyAnim(item.animationUrl);return "アニメーションをコピーしました。"});
+      if(CAN_SHARE)sb=shareBtn("アニメーションを共有",async()=>new File([await convertBuf(await fetchBuf(item.animationUrl),"gif")],`${item.id}.gif`,{type:"image/gif"}));
       cb=btn("変換して保存",async()=>{const f=$("fmt").value;cst("変換中…");save(await convertBuf(await fetchBuf(item.animationUrl),f),`${item.id}.${f}`);return `${item.id}.${f} を保存しました。`});
     }
     const links=document.createElement("div");links.className="links";
@@ -163,7 +184,7 @@ function renderRows(items){
     act.append(links);
     const id=document.createElement("td");id.className="idcell";id.textContent=item.id;
     tr.append(p,act,id);$("rows").append(tr);
-    if(item.probe&&item.animationUrl){const im=new Image();im.onerror=()=>{item.animationUrl="";[ab,cb,al].forEach(x=>x&&x.remove())};im.src=item.animationUrl}
+    if(item.probe&&item.animationUrl){const im=new Image();im.onerror=()=>{item.animationUrl="";[ab,sb,cb,al].forEach(x=>x&&x.remove())};im.src=item.animationUrl}
   }
   $("count").textContent=`${current.length}件`;
   $("results").classList.remove("hidden");
