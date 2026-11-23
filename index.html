@@ -16,6 +16,7 @@ button{cursor:pointer;background:var(--accent);border-color:var(--accent);color:
 .tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}th{color:#b9c8d9;font-size:13px}td a{color:#85c8ff;overflow-wrap:anywhere}.preview{width:76px;height:76px;object-fit:contain;background:#0d131b;border-radius:8px}.urlcell{max-width:310px}.smallbtn{padding:6px 9px;font-size:12px;margin-top:5px}.hidden{display:none}.count{font-weight:700;color:#8be3a8}
 select{font:inherit;border-radius:9px;border:1px solid #40536a;padding:11px 12px;background:#111923;color:var(--text)}
 summary{cursor:pointer;font-weight:650}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}.hit{background:#111923;border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:13px}.hit img{width:100%;height:110px;object-fit:contain;background:#0d131b;border-radius:8px}.hit b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+details details{margin-top:14px}
 </style>
 </head>
 <body>
@@ -30,27 +31,8 @@ summary{cursor:pointer;font-weight:650}.grid{display:grid;grid-template-columns:
 <select id="cat"><option value="sticker">スタンプ</option><option value="emoji">絵文字</option></select>
 <select id="stype"><option value="ALL">すべて</option><option value="OFFICIAL">公式</option><option value="CREATORS">クリエイターズ</option></select>
 <button id="searchBtn">検索</button>
-<button class="secondary" id="diagBtn">接続テスト</button>
 </div>
-<p class="hint">検索はLINE STOREの非公式な検索APIを使います。ブラウザから直接取得できない場合は、公開されている第三者のプロキシ（Hugging Face Space）を経由します。その場合、検索キーワードがそのサーバーに送られます。ただしこのサーバーは日本国外にあるため、日本国内限定の公式スタンプなどは出ません。出したい場合は、下の「日本の一覧で検索する」で自分用の中継を設定してください。</p>
-<details><summary class="hint">日本の一覧で検索する（自分用の検索中継を設定）</summary>
-<p class="hint">LINE STOREは接続元の国で商品一覧が変わります。日本で動く小さな中継を自分で用意し、そのURLを下に入力すると、日本の一覧（公式の日本限定スタンプを含む）で検索できます。方法A: Cloudflare Workers（無料。Workers &amp; Pages → Create → Hello World → Edit code に貼り付け → Deploy。表示されたURLを入力）。方法C: Vercel（東京。スマホ可）。方法B: 自分のPCで動かす（保存して <code>python proxy.py</code> を実行し、http://127.0.0.1:8787 を入力。Chromeで許可を求められたら許可）。</p>
-<label for="proxyUrl">中継URL</label>
-<div class="actions" style="margin-top:0"><input id="proxyUrl" placeholder="https://xxxx.workers.dev"><button class="secondary" id="proxySave">保存</button></div>
-<p class="hint">方法A: Cloudflare Workersのコード</p>
-<textarea id="workerCode" readonly style="min-height:110px"></textarea>
-<div class="actions"><button class="secondary" id="workerCopy">コードをコピー</button></div>
-<p class="hint">方法B: proxy.py</p>
-<textarea id="pyCode" readonly style="min-height:110px"></textarea>
-<div class="actions"><button class="secondary" id="pyCopy">コードをコピー</button></div>
-<p class="hint">方法C: Vercel（東京リージョン）。スマホだけでも設定できます。GitHubに新しいリポジトリを作り、次の2つのファイルを追加します（ファイル名は <code>vercel.json</code> と <code>api/search/[cat].js</code>。GitHubのファイル名欄に「api/search/[cat].js」と入力するとフォルダも作られます）。VercelのAdd New → ProjectでそのリポジトリをImportしてDeployし、発行された <code>xxxx.vercel.app</code> のURLを上の中継URLに入力します。ログインを求められる場合は、Settings → Deployment ProtectionでVercel Authenticationをオフにしてください。</p>
-<textarea id="vercelJson" readonly style="min-height:60px"></textarea>
-<div class="actions"><button class="secondary" id="vjCopy">vercel.json をコピー</button></div>
-<textarea id="vercelFn" readonly style="min-height:150px"></textarea>
-<div class="actions"><button class="secondary" id="vfCopy">api/search/[cat].js をコピー</button></div>
-</details>
 <div id="searchStatus" class="status"></div>
-<details><summary class="hint">検索結果の生データ（表示がおかしいときの確認用）</summary><textarea id="rawOut" readonly style="min-height:160px"></textarea></details>
 <div id="hits" class="grid"></div>
 <div class="actions"><button class="secondary hidden" id="moreBtn">さらに表示</button></div>
 </section>
@@ -61,15 +43,8 @@ summary{cursor:pointer;font-weight:650}.grid{display:grid;grid-template-columns:
 <div class="actions">
 <button id="fetchBtn">メタデータを取得</button>
 </div>
-<div id="status" class="status">最初にメタデータの取得を試します。ブラウザ側のCORS制限で失敗する場合は、下の貼り付け欄を使用してください。</div>
+<div id="status" class="status">最初にメタデータの取得を試します。ブラウザ側のCORS制限で失敗する場合は、ページ下部の「高度な設定」にある貼り付け欄を使用してください。</div>
 </section>
-
-<details class="panel">
-<summary>メタデータJSONを手動で貼り付ける（自動取得できない場合）</summary>
-<p class="hint">スタンプは productInfo.meta、絵文字は meta.json をブラウザで開き、表示されたJSON全文をコピーしてここに貼り付け、「JSONから一覧を作成」を押してください。</p>
-<textarea id="metaText" placeholder='{"title":...,"stickers":[{"id":...}, ...]}'></textarea>
-<div class="actions"><button id="parseBtn">JSONから一覧を作成</button></div>
-</details>
 
 <section class="panel hidden" id="results">
 <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
@@ -102,6 +77,38 @@ summary{cursor:pointer;font-weight:650}.grid{display:grid;grid-template-columns:
 <p class="hint">静止画: /iPhone/sticker@2x.png<br>アニメーション: /iPhone/sticker_animation@2x.png?v=1</p>
 <p class="hint">このページはLINEの公式APIではなく、公開されているLINE CDNのメタデータ形式を利用します。取得できない場合は、ネットワーク制限・CORS・配信仕様変更などが考えられます。</p>
 </section>
+
+<p class="hint" style="margin:6px 4px 14px">検索はLINE STOREの非公式な検索APIを使います。ブラウザから直接取得できない場合は、公開されている第三者のプロキシ（Hugging Face Space）を経由します。その場合、検索キーワードがそのサーバーに送られます。ただしこのサーバーは日本国外にあるため、日本国内限定の公式スタンプなどは出ません。出したい場合は、下の「日本の一覧で検索する」で自分用の中継を設定してください。</p>
+
+<details class="panel" id="adv">
+<summary>高度な設定</summary>
+<details id="proxyDetails"><summary>日本の一覧で検索する（自分用の検索中継を設定）</summary>
+<p class="hint">初期設定では https://linestickerurllist.vercel.app の中継が使われます。無料枠を超えるなどして使えなくなった場合は、自動的に第三者のプロキシに切り替わります（その場合、日本限定の公式スタンプは出ません）。</p>
+<p class="hint">LINE STOREは接続元の国で商品一覧が変わります。日本で動く小さな中継を自分で用意し、そのURLを下に入力すると、日本の一覧（公式の日本限定スタンプを含む）で検索できます。方法A: Cloudflare Workers（無料。Workers &amp; Pages → Create → Hello World → Edit code に貼り付け → Deploy。表示されたURLを入力）。方法C: Vercel（東京。スマホ可）。方法B: 自分のPCで動かす（保存して <code>python proxy.py</code> を実行し、http://127.0.0.1:8787 を入力。Chromeで許可を求められたら許可）。</p>
+<label for="proxyUrl">中継URL</label>
+<div class="actions" style="margin-top:0"><input id="proxyUrl" placeholder="https://xxxx.workers.dev"><button class="secondary" id="proxySave">保存</button></div>
+<p class="hint">方法A: Cloudflare Workersのコード</p>
+<textarea id="workerCode" readonly style="min-height:110px"></textarea>
+<div class="actions"><button class="secondary" id="workerCopy">コードをコピー</button></div>
+<p class="hint">方法B: proxy.py</p>
+<textarea id="pyCode" readonly style="min-height:110px"></textarea>
+<div class="actions"><button class="secondary" id="pyCopy">コードをコピー</button></div>
+<p class="hint">方法C: Vercel（東京リージョン）。スマホだけでも設定できます。GitHubに新しいリポジトリを作り、次の2つのファイルを追加します（ファイル名は <code>vercel.json</code> と <code>api/search/[cat].js</code>。GitHubのファイル名欄に「api/search/[cat].js」と入力するとフォルダも作られます）。VercelのAdd New → ProjectでそのリポジトリをImportしてDeployし、発行された <code>xxxx.vercel.app</code> のURLを上の中継URLに入力します。ログインを求められる場合は、Settings → Deployment ProtectionでVercel Authenticationをオフにしてください。</p>
+<textarea id="vercelJson" readonly style="min-height:60px"></textarea>
+<div class="actions"><button class="secondary" id="vjCopy">vercel.json をコピー</button></div>
+<textarea id="vercelFn" readonly style="min-height:150px"></textarea>
+<div class="actions"><button class="secondary" id="vfCopy">api/search/[cat].js をコピー</button></div>
+</details>
+<details id="rawDetails"><summary>検索結果の生データ（表示がおかしいときの確認用）</summary>
+<div class="actions"><button class="secondary" id="diagBtn">接続テスト</button></div>
+<textarea id="rawOut" readonly style="min-height:160px"></textarea></details>
+<details id="metaDetails">
+<summary>メタデータJSONを手動で貼り付ける（自動取得できない場合）</summary>
+<p class="hint">スタンプは productInfo.meta、絵文字は meta.json をブラウザで開き、表示されたJSON全文をコピーしてここに貼り付け、「JSONから一覧を作成」を押してください。</p>
+<textarea id="metaText" placeholder='{"title":...,"stickers":[{"id":...}, ...]}'></textarea>
+<div class="actions"><button id="parseBtn">JSONから一覧を作成</button></div>
+</details>
+</details>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -168,7 +175,8 @@ async function fetchMeta(){
     $("metaText").value=JSON.stringify(data,null,2);
     buildRows(data);
   }catch(e){
-    setStatus(`自動取得に失敗しました: ${e.message}\nブラウザのCORS制限などが原因の可能性があります。\n次の手順で手動取得してください:\n1. メタデータURLを別タブで開く\n2. JSON全文をコピー\n3. 「メタデータJSONを手動で貼り付ける」を開いて貼り付け、「JSONから一覧を作成」を押す\n\n${url}`,"error");
+    openAdv("metaDetails");
+    setStatus(`自動取得に失敗しました: ${e.message}\nブラウザのCORS制限などが原因の可能性があります。\n次の手順で手動取得してください:\n1. メタデータURLを別タブで開く\n2. JSON全文をコピー\n3. ページ下部の「高度な設定」→「メタデータJSONを手動で貼り付ける」に貼り付け、「JSONから一覧を作成」を押す\n\n${url}`,"error");
   }
 }
 /*PURE_START*/
@@ -348,8 +356,8 @@ function addHits(items,cat){
     img.onerror=()=>img.removeAttribute("src");
     const b=document.createElement("b");b.textContent=it.title||it.id;
     const sp=document.createElement("span");sp.className="hint";
-    sp.textContent=it.id+(it.sub==="OFFICIAL"?"・公式":it.sub==="CREATORS"?"・クリエイターズ":"")+(it.price?"・"+it.price:"");
-    const btn=document.createElement("button");btn.className="smallbtn";btn.textContent="個別URL一覧を作成";
+    sp.textContent=it.id+((it.sub==="OFFICIAL"||it.sub==="GENERAL")?"・公式":it.sub==="CREATORS"?"・クリエイターズ":"")+(it.price?"・"+it.price:"");
+    const btn=document.createElement("button");btn.className="smallbtn";btn.textContent=(it.kind||cat)==="emoji"?"絵文字を表示":"スタンプを表示";
     btn.onclick=async()=>{$("packId").value=it.id;await fetchMeta();if(!$("results").classList.contains("hidden"))$("results").scrollIntoView({behavior:"smooth"})};
     d.append(img,b,sp,btn);$("hits").append(d);
   }
@@ -387,13 +395,15 @@ async function runSearch(more){
     return;
   }
   sOffset+=PAGE;
-  const nq=norm(sQuery),rank=o=>(norm(o.title).includes(nq)?2:0)+(o.sub==="OFFICIAL"?1:0);
+  const nq=norm(sQuery),rank=o=>(norm(o.title).includes(nq)?2:0)+((o.sub==="OFFICIAL"||o.sub==="GENERAL")?1:0);
   items.sort((a,b)=>rank(b)-rank(a));
   addHits(items,cat);
   ss(`${$("hits").children.length}件表示中（価格表示の例: ${(items.find(x=>x.price)||{}).price||"不明"}／取得元: ${raw.length?raw[0].split("\n")[0].replace(/^.*取得元: /,""):""}）`,"success");
   $("moreBtn").classList.toggle("hidden",!full);
 }
-function proxyUrl(){try{return(localStorage.getItem("lineProxy")||"").trim().replace(/\/+$/,"")}catch(e){return""}}
+const DEFAULT_PROXY="https://linestickerurllist.vercel.app";
+function proxyUrl(){try{return(localStorage.getItem("lineProxy")||"").trim().replace(/\/+$/,"")||DEFAULT_PROXY}catch(e){return DEFAULT_PROXY}}
+function openAdv(id){$("adv").open=true;$(id).open=true}
 const WORKER_CODE=String.raw`export default {
   async fetch(req) {
     const cors = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*"};
@@ -469,7 +479,7 @@ async function diag(){
       }catch(e){lines.push(`[${name}] ${t}: ${e.message}`)}
     }
   }
-  $("rawOut").value=lines.join("\n");$("rawOut").closest("details").open=true;
+  $("rawOut").value=lines.join("\n");openAdv("rawDetails");
   ss("接続テストの結果を「検索結果の生データ」に表示しました。","success");
 }
 $("diagBtn").onclick=diag;
