@@ -15,10 +15,16 @@ button{cursor:pointer;background:var(--accent);border-color:var(--accent);color:
 .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.hint,.status{color:var(--muted);font-size:13px}.status{margin-top:10px;white-space:pre-wrap}.error{color:#ff9d9d}.success{color:#8be3a8}
 .tablewrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}th{color:#b9c8d9;font-size:13px}td a{color:#85c8ff;overflow-wrap:anywhere}.preview{width:76px;height:76px;object-fit:contain;background:#0d131b;border-radius:8px}.urlcell{max-width:310px}.smallbtn{padding:6px 9px;font-size:12px;margin-top:5px}.hidden{display:none}.count{font-weight:700;color:#8be3a8}
 select{font:inherit;border-radius:9px;border:1px solid #40536a;padding:11px 12px;background:#111923;color:var(--text)}
-summary{cursor:pointer;font-weight:650}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}.hit{background:#111923;border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:13px}.hit img{width:100%;height:110px;object-fit:contain;background:#0d131b;border-radius:8px}.hit b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+summary{cursor:pointer;font-weight:650}
 details details{margin-top:14px}
 html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel{min-width:0}.panel{overflow-wrap:anywhere}img,table,textarea,input,select{max-width:100%}
 .tablewrap{overflow:visible}table{table-layout:fixed}th:nth-child(1),td:nth-child(1){width:90px}th:nth-child(3),td:nth-child(3){width:78px}.act .smallbtn{display:block;width:100%;margin:0 0 6px;text-align:center}.links a{display:inline-block;margin:0 10px 0 0;font-size:12px}.idcell{font-size:12px;color:var(--muted);word-break:break-all}.preview{width:76px;height:76px;max-width:none}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.tabs button{background:none;border:none;border-bottom:3px solid transparent;border-radius:0;color:var(--muted);padding:10px 12px;font-weight:650;white-space:nowrap}.tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+.sechead{display:flex;align-items:baseline;gap:8px;margin:16px 0 4px}.sechead .cnt{color:var(--accent);font-weight:700}.sechead a{margin-left:auto;color:var(--muted);font-size:13px;cursor:pointer}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px 8px;margin-top:10px}.hit{cursor:pointer;text-align:center;font-size:11px;min-width:0}.hit img{width:100%;aspect-ratio:1;object-fit:contain;background:#0d131b;border-radius:8px;display:block}.hit .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:4px;line-height:1.3}.hit .p{color:var(--accent);font-weight:700;font-size:12px;margin-top:2px}
+.pkhead{display:flex;gap:12px;align-items:center;margin:12px 0}.pkhead img{width:64px;height:64px;object-fit:contain;background:#0d131b;border-radius:8px}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}.tile{aspect-ratio:1;background:#0d131b;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer}.tile img{width:100%;height:100%;object-fit:contain;display:block}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:50}.overlay.hidden{display:none}.sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:100%;max-width:520px;max-height:88vh;overflow:auto}.dimg{display:block;margin:0 auto 10px;max-width:70%;max-height:220px;background:#0d131b;border-radius:10px;object-fit:contain}
 </style>
 </head>
 <body>
@@ -30,12 +36,12 @@ html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel
 <label for="q">キーワードで検索</label>
 <div class="actions" style="margin-top:0">
 <input id="q" placeholder="例: ねこ、あいさつ、敬語" style="max-width:340px">
-<select id="cat"><option value="sticker">スタンプ</option><option value="emoji">絵文字</option></select>
-<select id="stype"><option value="ALL">すべて</option><option value="OFFICIAL">公式</option><option value="CREATORS">クリエイターズ</option></select>
+<select id="stype"><option value="ALL">すべての種類</option><option value="OFFICIAL">公式</option><option value="CREATORS">クリエイターズ</option></select>
 <button id="searchBtn">検索</button>
 </div>
+<div class="tabs" id="tabs"><button class="on" data-tab="all">すべて</button><button data-tab="sticker">スタンプ</button><button data-tab="emoji">絵文字</button><button data-tab="theme">着せかえ</button></div>
 <div id="searchStatus" class="status"></div>
-<div id="hits" class="grid"></div>
+<div id="hits"></div>
 <div class="actions"><button class="secondary hidden" id="moreBtn">さらに表示</button></div>
 </section>
 
@@ -56,10 +62,9 @@ html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel
 <button class="secondary" id="copyBtn">URL一覧をコピー</button>
 </div>
 </div>
-<p class="hint">静止画・アニメーションの両方のURLを表示します。スタンプの種類によっては片方が存在しない、または別形式の場合があります。リンク先で実際に確認してください。</p>
-<div class="tablewrap">
-<table><thead><tr><th>プレビュー</th><th>操作</th><th>個別ID</th></tr></thead><tbody id="rows"></tbody></table>
-</div>
+<p class="hint">画像をタップすると、IDやコピー・共有・保存などの操作が開きます。</p>
+<div id="pkHead" class="pkhead"></div>
+<div id="igrid" class="igrid"></div>
 </section>
 
 <section class="panel">
@@ -112,6 +117,13 @@ html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel
 </details>
 </details>
 </main>
+<div id="detail" class="overlay hidden"><div class="sheet">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span id="dTitle" style="font-weight:650"></span><button class="secondary smallbtn" id="dClose" style="margin:0">閉じる</button></div>
+<img id="dImg" class="dimg" alt="">
+<div class="hint" style="text-align:center;margin-bottom:10px">ID: <b id="dId"></b> <button class="smallbtn secondary" id="dCopyId" style="display:inline-block;margin:0 0 0 6px">IDをコピー</button></div>
+<div id="dActs" class="act"></div>
+<div id="dStatus" class="status"></div>
+</div></div>
 <script>
 const $ = id => document.getElementById(id);
 let current = [];
@@ -135,59 +147,84 @@ function buildRows(data){
     items=data.orders.map(o=>String(o).padStart(3,"0")).map(i=>({id:i,staticUrl:b+i+".png",animationUrl:anim?b+i+"_animation.png":""}));
   }else throw new Error("JSON内に stickers 配列（スタンプ）または orders 配列（絵文字）が見つかりません。");
   if(!items.length) throw new Error("個別IDが見つかりませんでした。");
-  renderRows(items);
+  renderRows(items);setPkHead(data);
   setStatus(`成功：${items.length}件を取得しました。`,"success");
 }
 const CAN_SHARE=(()=>{try{return typeof navigator.share==="function"&&typeof navigator.canShare==="function"&&navigator.canShare({files:[new File(["x"],"a.png",{type:"image/png"})]})}catch(e){return false}})();
+function lang(o){return o&&typeof o==="object"?(o.ja||o.en||Object.values(o)[0]||""):(o||"")}
+function setPkHead(data){
+  const id=String(data.packageId||data.productId||""),h=$("pkHead");h.innerHTML="";
+  const img=new Image();img.alt="";img.onerror=()=>img.remove();
+  img.src=data.stickers?`https://stickershop.line-scdn.net/stickershop/v1/product/${id}/LINEStorePC/main.png`:`https://stickershop.line-scdn.net/sticonshop/v1/product/${id}/iPhone/main.png`;
+  const d=document.createElement("div"),t=document.createElement("b"),a=document.createElement("div");
+  t.textContent=lang(data.title)||"ID: "+id;a.className="hint";a.textContent=[lang(data.author),"ID: "+id].filter(Boolean).join("　");
+  d.append(t,a);h.append(img,d);
+}
 function renderRows(items){
-  current=items;$("rows").innerHTML="";
+  current=items;const g=$("igrid");g.innerHTML="";
   for(const item of current){
-    const tr=document.createElement("tr");
-    const p=document.createElement("td"),preview=document.createElement("img");
-    preview.className="preview";preview.loading="lazy";preview.src=item.staticUrl;preview.alt="ID "+item.id;
-    preview.onerror=()=>{preview.alt="画像なし";preview.removeAttribute("src")};p.append(preview);
-    const act=document.createElement("td");act.className="act";
-    const btn=(label,fn)=>{
-      const b=document.createElement("button");b.className="smallbtn secondary";b.textContent=label;
-      b.onclick=async()=>{b.disabled=true;try{cst(await fn(),"success");b.textContent="完了"}catch(e){cst(`${item.id}: ${e.message}`,"error")}setTimeout(()=>{b.textContent=label;b.disabled=false},1500)};
-      act.append(b);return b;
-    };
-    const shareBtn=(label,prep)=>{
-      const b=document.createElement("button");b.className="smallbtn secondary";b.textContent=label;let file=null;
-      b.onclick=async()=>{
-        b.disabled=true;
-        try{
-          if(!file){cst("共有の準備中…");file=await prep()}
-          if(!navigator.canShare({files:[file]}))throw new Error("このブラウザではこのファイルを共有できません。");
-          try{await navigator.share({files:[file]});cst("共有メニューを閉じました。","success")}
-          catch(e){
-            if(e.name==="AbortError")cst("共有をキャンセルしました。");
-            else if(e.name==="NotAllowedError"){b.textContent="もう一度押して共有";cst("準備ができました。もう一度ボタンを押すと共有メニューが開きます。");b.disabled=false;return}
-            else throw e;
-          }
-        }catch(e){cst(`${item.id}: ${e.message}`,"error")}
-        b.textContent=label;b.disabled=false;
-      };
-      act.append(b);return b;
-    };
-    btn("画像をコピー",async()=>{cst("コピー中…");await copyImage(item.staticUrl);return "画像をコピーしました。"});
-    if(CAN_SHARE)shareBtn("画像を共有",async()=>new File([await(await fetch(item.staticUrl,{mode:"cors"})).blob()],`${item.id}.png`,{type:"image/png"}));
-    let ab,cb,al,sb;
-    if(item.animationUrl){
-      ab=btn("アニメーションをコピー",async()=>{cst("GIFに変換してコピー中…");await copyAnim(item.animationUrl);return "アニメーションをコピーしました。"});
-      if(CAN_SHARE)sb=shareBtn("アニメーションを共有",async()=>new File([await convertBuf(await fetchBuf(item.animationUrl),"gif")],`${item.id}.gif`,{type:"image/gif"}));
-      cb=btn("変換して保存",async()=>{const f=$("fmt").value;cst("変換中…");save(await convertBuf(await fetchBuf(item.animationUrl),f),`${item.id}.${f}`);return `${item.id}.${f} を保存しました。`});
-    }
-    const links=document.createElement("div");links.className="links";
-    const lk=(url,label)=>{const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=label;links.append(a);return a};
-    lk(item.staticUrl,"静止画を開く");if(item.animationUrl)al=lk(item.animationUrl,"アニメーションを開く");
-    act.append(links);
-    const id=document.createElement("td");id.className="idcell";id.textContent=item.id;
-    tr.append(p,act,id);$("rows").append(tr);
-    if(item.probe&&item.animationUrl){const im=new Image();im.onerror=()=>{item.animationUrl="";[ab,sb,cb,al].forEach(x=>x&&x.remove())};im.src=item.animationUrl}
+    const t=document.createElement("div");t.className="tile";
+    const im=document.createElement("img");im.loading="lazy";im.src=item.staticUrl;im.alt="ID "+item.id;im.onerror=()=>im.removeAttribute("src");
+    t.append(im);t.onclick=()=>openDetail(item);g.append(t);
   }
   $("count").textContent=`${current.length}件`;
   $("results").classList.remove("hidden");
+}
+function closeDetail(){$("detail").classList.add("hidden")}
+function showSheet(img,title,id){
+  $("dImg").onerror=null;$("dImg").src=img;$("dTitle").textContent=title||"";$("dId").textContent=id;$("dStatus").textContent="";$("dActs").innerHTML="";
+  $("dCopyId").onclick=()=>navigator.clipboard.writeText(id).then(()=>cst("IDをコピーしました。","success"),()=>cst("コピーできませんでした。","error"));
+  $("detail").classList.remove("hidden");
+}
+function openTheme(it){
+  showSheet(it.icon,it.title,it.id);
+  if(it.url){const a=document.createElement("a");a.href="https://store.line.me"+it.url;a.target="_blank";a.rel="noopener";a.textContent="LINE STOREで開く";$("dActs").append(a)}
+}
+function openDetail(item){
+  showSheet(item.staticUrl,"",item.id);
+  const build=()=>{
+    buildActions(item);
+    if(item.animationUrl){$("dImg").onerror=()=>{$("dImg").onerror=null;$("dImg").src=item.staticUrl};$("dImg").src=item.animationUrl}
+  };
+  if(item.probe&&item.animationUrl){item.probe=false;const im=new Image();im.onload=build;im.onerror=()=>{item.animationUrl="";build()};im.src=item.animationUrl}
+  else build();
+}
+function buildActions(item){
+  const act=$("dActs");act.innerHTML="";
+  const btn=(label,fn)=>{
+    const b=document.createElement("button");b.className="smallbtn secondary";b.textContent=label;
+    b.onclick=async()=>{b.disabled=true;try{cst(await fn(),"success");b.textContent="完了"}catch(e){cst(`${item.id}: ${e.message}`,"error")}setTimeout(()=>{b.textContent=label;b.disabled=false},1500)};
+    act.append(b);return b;
+  };
+  const shareBtn=(label,prep)=>{
+    const b=document.createElement("button");b.className="smallbtn secondary";b.textContent=label;let file=null;
+    b.onclick=async()=>{
+      b.disabled=true;
+      try{
+        if(!file){cst("共有の準備中…");file=await prep()}
+        if(!navigator.canShare({files:[file]}))throw new Error("このブラウザではこのファイルを共有できません。");
+        try{await navigator.share({files:[file]});cst("共有メニューを閉じました。","success")}
+        catch(e){
+          if(e.name==="AbortError")cst("共有をキャンセルしました。");
+          else if(e.name==="NotAllowedError"){b.textContent="もう一度押して共有";cst("準備ができました。もう一度ボタンを押すと共有メニューが開きます。");b.disabled=false;return}
+          else throw e;
+        }
+      }catch(e){cst(`${item.id}: ${e.message}`,"error")}
+      b.textContent=label;b.disabled=false;
+    };
+    act.append(b);return b;
+  };
+  btn("画像をコピー",async()=>{cst("コピー中…");await copyImage(item.staticUrl);return "画像をコピーしました。"});
+  if(CAN_SHARE)shareBtn("画像を共有",async()=>new File([await(await fetch(item.staticUrl,{mode:"cors"})).blob()],`${item.id}.png`,{type:"image/png"}));
+  if(item.animationUrl){
+    btn("アニメーションをコピー",async()=>{cst("GIFに変換してコピー中…");await copyAnim(item.animationUrl);return "アニメーションをコピーしました。"});
+    if(CAN_SHARE)shareBtn("アニメーションを共有",async()=>new File([await convertBuf(await fetchBuf(item.animationUrl),"gif")],`${item.id}.gif`,{type:"image/gif"}));
+    btn("変換して保存",async()=>{const f=$("fmt").value;cst("変換中…");save(await convertBuf(await fetchBuf(item.animationUrl),f),`${item.id}.${f}`);return `${item.id}.${f} を保存しました。`});
+  }
+  const links=document.createElement("div");links.className="links";
+  const lk=(url,label)=>{const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=label;links.append(a)};
+  lk(item.staticUrl,"静止画を開く");if(item.animationUrl)lk(item.animationUrl,"アニメーションを開く");
+  act.append(links);
 }
 async function fetchMeta(){
   const t=extractPackId($("packId").value);
@@ -362,7 +399,7 @@ function copyAnim(url){
   const html=gif.then(g=>new Promise((r,j)=>{const f=new FileReader();f.onload=()=>r(new Blob([`<img src="${f.result}">`],{type:"text/html"}));f.onerror=j;f.readAsDataURL(g)}));
   return navigator.clipboard.write([new ClipboardItem({"text/html":html,"text/plain":Promise.resolve(new Blob([url],{type:"text/plain"}))})]);
 }
-const cst=(m,k="")=>{$("convStatus").className="status "+k;$("convStatus").textContent=m};
+const cst=(m,k="")=>{$("convStatus").className="status "+k;$("convStatus").textContent=m;$("dStatus").className="status "+k;$("dStatus").textContent=m};
 function save(b,name){const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
 async function toFile(blob,name){return{name,data:new Uint8Array(await blob.arrayBuffer())}}
 $("zipBtn").onclick=async()=>{
@@ -390,13 +427,13 @@ $("fileIn").onchange=async e=>{
   cst(`${files.length}件を保存しました。`+(ng?`\n${ng}件は失敗しました（${last}）`:""),ng?"error":"success");
 };
 
-const PAGE=24;let sOffset=0,sQuery="";
+const PAGE=24;let tab="all",sQuery="",cache={};
 const ss=(m,k="")=>{$("searchStatus").className="status "+k;$("searchStatus").textContent=m};
 const idOf=o=>o.id??o.productId??o.packageId??o.product_id;
 const titleOf=o=>{const t=o.title??o.name??o.productName??"";return t&&typeof t==="object"?(t.ja||t.en||Object.values(t)[0]||""):String(t)};
 const norm=x=>String(x).normalize("NFKC").toLowerCase().replace(/[\s・･·\-]/g,"");
 function pickItems(j,cat,q){
-  const ok=cat==="emoji"?/^[0-9a-f]{20,}$/i:/^\d+$/,cands=[];
+  const ok=cat==="emoji"?/^[0-9a-f]{20,}$/i:cat==="theme"?/^[0-9a-f-]{20,}$/i:/^\d+$/,cands=[];
   (function walk(x,d,path){
     if(!x||typeof x!=="object"||d>6)return;
     if(Array.isArray(x)){const good=x.filter(o=>o&&typeof o==="object"&&ok.test(String(idOf(o)??"")));if(good.length)cands.push({good,path});else x.forEach((v,i)=>walk(v,d+1,path+"["+i+"]"));return}
@@ -405,62 +442,102 @@ function pickItems(j,cat,q){
   const nq=norm(q),score=c=>c.good.filter(o=>norm(JSON.stringify(o)).includes(nq)).length,pri=c=>/(^|\.)(items|products|stickers|list|results?|packages)$/i.test(c.path)?1:0;
   cands.sort((a,b)=>score(b)-score(a)||pri(b)-pri(a)||b.good.length-a.good.length);
   const hit=cands.filter(c=>score(c)>0),use=hit.length?hit:(cands[0]?[cands[0]]:[]),seen=new Set(),items=[];
-  for(const c of use)for(const o of c.good){const id=String(idOf(o));if(seen.has(id))continue;seen.add(id);items.push({id,title:titleOf(o),sub:o.subtype||"",icon:(o.listIcon&&o.listIcon.src)||"",price:typeof(o.priceString??o.price)==="string"?(o.priceString??o.price):""})}
+  for(const c of use)for(const o of c.good){const id=String(idOf(o));if(seen.has(id))continue;seen.add(id);items.push({id,title:titleOf(o),sub:o.subtype||"",icon:(o.listIcon&&o.listIcon.src)||"",price:typeof(o.priceString??o.price)==="string"?(o.priceString??o.price):"",url:o.productUrl||""})}
   items.sort((a,b)=>(norm(b.title).includes(nq)?1:0)-(norm(a.title).includes(nq)?1:0));
   return{items,path:use.map(c=>c.path||"(root)").join(" + "),paths:cands.map(x=>`${x.path||"(root)"}: ${x.good.length}件、キーワード一致 ${score(x)}件`)};
 }
-function addHits(items,cat){
-  for(const it of items){
-    const d=document.createElement("div");d.className="hit";
-    const img=new Image();img.loading="lazy";img.alt=it.title;
-    img.src=it.icon||((it.kind||cat)==="emoji"?`https://stickershop.line-scdn.net/sticonshop/v1/product/${it.id}/iPhone/main.png`:`https://stickershop.line-scdn.net/stickershop/v1/product/${it.id}/LINEStorePC/main.png`);
-    img.onerror=()=>img.removeAttribute("src");
-    const b=document.createElement("b");b.textContent=it.title||it.id;
-    const sp=document.createElement("span");sp.className="hint";
-    sp.textContent=it.id+((it.sub==="OFFICIAL"||it.sub==="GENERAL")?"・公式":it.sub==="CREATORS"?"・クリエイターズ":"")+(it.price?"・"+it.price:"");
-    const btn=document.createElement("button");btn.className="smallbtn";btn.textContent=(it.kind||cat)==="emoji"?"絵文字を表示":"スタンプを表示";
-    btn.onclick=async()=>{$("packId").value=it.id;await fetchMeta();if(!$("results").classList.contains("hidden"))$("results").scrollIntoView({behavior:"smooth"})};
-    d.append(img,b,sp,btn);$("hits").append(d);
-  }
-}
-const shown=new Set();let directOk=true;
-async function runSearch(more){
-  const q=$("q").value.trim();
-  if(!q){ss("キーワードを入力してください。","error");return}
-  const cat=$("cat").value,type=$("stype").value;
-  if(!more){sOffset=0;sQuery=q;$("hits").innerHTML="";$("moreBtn").classList.add("hidden");shown.clear()}
-  ss("検索中…");
-  const enc=encodeURIComponent(sQuery),qs=`offset=${sOffset}&limit=${PAGE}`;
-  const types=type==="ALL"?["ALL","OFFICIAL","CREATORS"]:[type];
-  const bases=[];
+const CATS=["sticker","emoji","theme"],CAT_NAME={sticker:"スタンプ",emoji:"絵文字",theme:"着せかえ"};
+let directOk=true,lastRaw=[],lastSrc="";
+async function searchCat(cat,offset){
+  const type=$("stype").value,types=type==="ALL"?["ALL","OFFICIAL","CREATORS"]:[type];
+  const enc=encodeURIComponent(sQuery),qs=`offset=${offset}&limit=${PAGE}`,bases=[];
   if(proxyUrl())bases.push({kind:"mine",mk:t=>`${proxyUrl()}/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`});
   if(directOk)bases.push({kind:"direct",mk:t=>`https://store.line.me/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`});
   bases.push({kind:"hf",mk:t=>`https://daydreamer-json-line-stamp-api-proxy.hf.space/api/search?category=${cat}&type=${t}&query=${enc}&${qs}&lang=ja`});
-  const items=[],errs=[],raw=[];let full=false;
+  const items=[],errs=[],raw=[],seen=new Set();let full=false,src="";
   for(const t of types){
     for(const bs of bases){
-      const u=bs.mk(t);
+      const u=bs.mk(t),name=bs.kind==="mine"?"自分用の中継":new URL(u).host;
       try{
         const r=await fetch(u,bs.kind==="mine"?{}:{headers:{"Accept-Language":"ja"}});if(!r.ok)throw new Error("HTTP "+r.status);
         const j=await r.json(),info=pickItems(j,cat,sQuery);
-        raw.push(`# type=${t} 取得元: ${bs.kind==="mine"?"自分用の中継":new URL(u).host}\n配列: ${info.paths.join(" / ")||"なし"}\n`+JSON.stringify(j,null,1).slice(0,3000));
-        for(const it of info.items)if(!shown.has(it.id)){shown.add(it.id);items.push(it)}
+        raw.push(`# type=${t} 取得元: ${name}\n配列: ${info.paths.join(" / ")||"なし"}\n`+JSON.stringify(j,null,1).slice(0,2000));
+        if(!src)src=name;
+        for(const it of info.items)if(!seen.has(it.id)){seen.add(it.id);items.push(it)}
         if(info.items.length>=PAGE)full=true;
         break;
-      }catch(e){if(bs.kind==="direct")directOk=false;errs.push(`${t} ${bs.kind==="mine"?"自分用の中継":new URL(u).host}: ${e.message}`)}
+      }catch(e){if(bs.kind==="direct")directOk=false;errs.push(`${t} ${name}: ${e.message}`)}
     }
   }
-  $("rawOut").value=(errs.length?"エラー:\n"+errs.join("\n")+"\n\n":"")+raw.join("\n\n");
-  if(!items.length){
-    ss(raw.length?(more?"これ以上の結果はありません。":"該当なし、または結果の形式を解釈できませんでした。"):`検索できませんでした。\n${errs.join("\n")}\nLINE STOREのWebサイトやアプリで検索し、商品ページのURLを下の入力欄に貼り付けてください。`,raw.length?"":"error");
-    return;
-  }
-  sOffset+=PAGE;
   const nq=norm(sQuery),rank=o=>(norm(o.title).includes(nq)?2:0)+((o.sub==="OFFICIAL"||o.sub==="GENERAL")?1:0);
   items.sort((a,b)=>rank(b)-rank(a));
-  addHits(items,cat);
-  ss(`${$("hits").children.length}件表示中（価格表示の例: ${(items.find(x=>x.price)||{}).price||"不明"}／取得元: ${raw.length?raw[0].split("\n")[0].replace(/^.*取得元: /,""):""}）`,"success");
-  $("moreBtn").classList.toggle("hidden",!full);
+  return{items,errs,raw,full,src};
+}
+async function loadCat(cat,more){
+  const c=cache[cat]||(cache[cat]={items:[],ids:new Set(),offset:0,full:false,loaded:false});
+  if(more&&!c.full)return;
+  const r=await searchCat(cat,c.offset);
+  for(const it of r.items)if(!c.ids.has(it.id)){c.ids.add(it.id);c.items.push(it)}
+  c.offset+=PAGE;c.full=r.full;c.loaded=true;
+  lastRaw.push(...r.raw.map(x=>`[${CAT_NAME[cat]}] ${x}`),...r.errs.map(x=>`エラー [${CAT_NAME[cat]}] ${x}`));
+  if(r.src)lastSrc=r.src;
+}
+function hitCard(it,cat){
+  const d=document.createElement("div");d.className="hit";
+  const img=new Image();img.loading="lazy";img.alt=it.title;
+  img.src=it.icon||(cat==="emoji"?`https://stickershop.line-scdn.net/sticonshop/v1/product/${it.id}/iPhone/main.png`:cat==="sticker"?`https://stickershop.line-scdn.net/stickershop/v1/product/${it.id}/LINEStorePC/main.png`:"");
+  img.onerror=()=>img.removeAttribute("src");
+  const t=document.createElement("div");t.className="t";t.textContent=it.title||it.id;
+  const p=document.createElement("div");p.className="p";p.textContent=it.price;
+  d.append(img,t,p);
+  d.onclick=async()=>{
+    if(cat==="theme"){openTheme(it);return}
+    $("packId").value=it.id;await fetchMeta();
+    if(!$("results").classList.contains("hidden"))$("results").scrollIntoView({behavior:"smooth"});
+  };
+  return d;
+}
+function renderHits(){
+  const box=$("hits");box.innerHTML="";
+  const cats=tab==="all"?CATS:[tab];let total=0,price="";
+  for(const cat of cats){
+    const c=cache[cat];if(!c||!c.items.length)continue;
+    const list=tab==="all"?c.items.slice(0,8):c.items;total+=list.length;price=price||(c.items.find(x=>x.price)||{}).price||"";
+    if(tab==="all"){
+      const head=document.createElement("div");head.className="sechead";
+      const b=document.createElement("b");b.textContent=CAT_NAME[cat];
+      const n=document.createElement("span");n.className="cnt";n.textContent=c.items.length+(c.full?"+":"");
+      const more=document.createElement("a");more.textContent="もっと見る ›";more.onclick=()=>setTab(cat);
+      head.append(b,n,more);box.append(head);
+    }
+    const g=document.createElement("div");g.className="hgrid";
+    for(const it of list)g.append(hitCard(it,cat));
+    box.append(g);
+  }
+  const got=lastRaw.some(x=>x.includes("# type="));
+  if(!total)ss(got?"該当なし、または結果の形式を解釈できませんでした。":`検索できませんでした。\n${lastRaw.filter(x=>x.startsWith("エラー")).join("\n")}\nLINE STOREのWebサイトやアプリで検索し、商品ページのURLを下の入力欄に貼り付けてください。`,got?"":"error");
+  else ss(`${total}件表示中（価格表示の例: ${price||"不明"}／取得元: ${lastSrc}）`,"success");
+  $("moreBtn").classList.toggle("hidden",!(tab!=="all"&&cache[tab]&&cache[tab].full));
+}
+async function ensureLoaded(){
+  const need=(tab==="all"?CATS:[tab]).filter(c=>!cache[c]||!cache[c].loaded);
+  if(need.length){ss("検索中…");lastRaw=[];await Promise.all(need.map(c=>loadCat(c,false)));$("rawOut").value=lastRaw.join("\n\n")}
+  renderHits();
+}
+async function runSearch(more){
+  const q=$("q").value.trim();
+  if(!q){ss("キーワードを入力してください。","error");return}
+  if(!more){sQuery=q;cache={}}
+  lastRaw=[];ss("検索中…");
+  await Promise.all((tab==="all"?CATS:[tab]).map(c=>loadCat(c,more&&tab!=="all")));
+  $("rawOut").value=lastRaw.join("\n\n");
+  renderHits();
+}
+function setTab(t){
+  tab=t;document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));
+  const q=$("q").value.trim();
+  if(!sQuery&&!q)return;
+  if(q&&q!==sQuery)runSearch(false);else ensureLoaded();
 }
 const DEFAULT_PROXY="https://linestickerurllist.vercel.app";
 function proxyUrl(){try{return(localStorage.getItem("lineProxy")||"").trim().replace(/\/+$/,"")||DEFAULT_PROXY}catch(e){return DEFAULT_PROXY}}
@@ -524,7 +601,7 @@ $("vjCopy").onclick=()=>navigator.clipboard.writeText(VERCEL_JSON).then(()=>ss("
 $("vfCopy").onclick=()=>navigator.clipboard.writeText(VERCEL_FN).then(()=>ss("api/search/[cat].js をコピーしました。","success"));
 $("proxySave").onclick=()=>{try{localStorage.setItem("lineProxy",$("proxyUrl").value.trim());ss("中継URLを保存しました。","success")}catch(e){ss("このブラウザでは保存できませんでした（今回のみ有効）。","error")}};
 async function diag(){
-  const q=$("q").value.trim()||"セーラームーン",cat=$("cat").value,enc=encodeURIComponent(q),qs="offset=0&limit=24",lines=[];
+  const q=$("q").value.trim()||"セーラームーン",cat="sticker",enc=encodeURIComponent(q),qs="offset=0&limit=24",lines=[];
   const srcs=[["自分用の中継",proxyUrl()?t=>`${proxyUrl()}/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`:null],
     ["直接",t=>`https://store.line.me/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`],
     ["第三者プロキシ",t=>`https://daydreamer-json-line-stamp-api-proxy.hf.space/api/search?category=${cat}&type=${t}&query=${enc}&${qs}&lang=ja`]];
@@ -544,6 +621,9 @@ async function diag(){
   ss("接続テストの結果を「検索結果の生データ」に表示しました。","success");
 }
 $("diagBtn").onclick=diag;
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+$("dClose").onclick=closeDetail;$("detail").onclick=e=>{if(e.target===$("detail"))closeDetail()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDetail()});
 $("searchBtn").onclick=()=>runSearch(false);
 $("moreBtn").onclick=()=>runSearch(true);
 $("q").onkeydown=e=>{if(e.key==="Enter"&&!e.isComposing)runSearch(false)};
