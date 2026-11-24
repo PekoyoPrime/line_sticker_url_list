@@ -21,16 +21,17 @@ html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel
 .tablewrap{overflow:visible}table{table-layout:fixed}th:nth-child(1),td:nth-child(1){width:90px}th:nth-child(3),td:nth-child(3){width:78px}.act .smallbtn{display:block;width:100%;margin:0 0 6px;text-align:center}.links a{display:inline-block;margin:0 10px 0 0;font-size:12px}.idcell{font-size:12px;color:var(--muted);word-break:break-all}.preview{width:76px;height:76px;max-width:none}
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.tabs button{background:none;border:none;border-bottom:3px solid transparent;border-radius:0;color:var(--muted);padding:10px 12px;font-weight:650;white-space:nowrap}.tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
 .sechead{display:flex;align-items:baseline;gap:8px;margin:16px 0 4px}.sechead .cnt{color:var(--accent);font-weight:700}.sechead a{margin-left:auto;color:var(--muted);font-size:13px;cursor:pointer}
-.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px 8px;margin-top:10px}.hit{cursor:pointer;text-align:center;font-size:11px;min-width:0}.hit img{width:100%;aspect-ratio:1;object-fit:contain;background:#0d131b;border-radius:8px;display:block}.hit .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:4px;line-height:1.3}.hit .p{color:var(--accent);font-weight:700;font-size:12px;margin-top:2px}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px 6px;margin-top:10px}.hit{cursor:pointer;text-align:center;font-size:10px;min-width:0}.hit img{width:100%;aspect-ratio:1;object-fit:contain;background:#0d131b;border-radius:8px;display:block}.hit .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:4px;line-height:1.3}.hit .p{color:var(--accent);font-weight:700;font-size:11px;margin-top:2px}
 .pkhead{display:flex;gap:12px;align-items:center;margin:12px 0}.pkhead img{width:64px;height:64px;object-fit:contain;background:#0d131b;border-radius:8px}
-.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}.tile{aspect-ratio:1;background:#0d131b;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer}.tile img{width:100%;height:100%;object-fit:contain;display:block}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}.tile{aspect-ratio:1;background:#0d131b;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer}.tile img{width:100%;height:100%;object-fit:contain;display:block}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:50}.overlay.hidden{display:none}.sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:100%;max-width:520px;max-height:88vh;overflow:auto}.dimg{display:block;margin:0 auto 10px;max-width:70%;max-height:220px;background:#0d131b;border-radius:10px;object-fit:contain}
+main{padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}@media (max-width:600px){main{margin:14px auto;padding:0 6px calc(120px + env(safe-area-inset-bottom,0px))}.panel{padding:12px}.sub{margin-bottom:14px}}
 </style>
 </head>
 <body>
 <main>
 <h1>LINEスタンプ 個別URL一覧</h1>
-<p class="sub">スタンプセットIDを入力すると、各スタンプの個別ID・静止画URL・アニメーションURLを一覧化します。</p>
+<p class="sub">スタンプセットIDを入力すると、各スタンプの個別ID・静止画URL・アニメーションURLを一覧化します。　<a href="#adv" id="advLink" style="color:#85c8ff;white-space:nowrap">高度な設定 ↓</a></p>
 
 <section class="panel">
 <label for="q">キーワードで検索</label>
@@ -55,13 +56,7 @@ html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel
 </section>
 
 <section class="panel hidden" id="results">
-<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
 <div><strong>取得結果</strong>　<span id="count" class="count"></span></div>
-<div class="actions" style="margin:0">
-<button class="secondary" id="csvBtn">CSVを保存</button>
-<button class="secondary" id="copyBtn">URL一覧をコピー</button>
-</div>
-</div>
 <p class="hint">画像をタップすると、IDやコピー・共有・保存などの操作が開きます。</p>
 <div id="pkHead" class="pkhead"></div>
 <div id="igrid" class="igrid"></div>
@@ -89,6 +84,11 @@ html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel
 
 <details class="panel" id="adv">
 <summary>高度な設定</summary>
+<details id="exportDetails"><summary>一覧のエクスポート（CSV保存・URL一覧コピー）</summary>
+<p class="hint">いま表示している画像一覧の、個別ID・静止画URL・アニメーションURLを書き出します。</p>
+<div class="actions"><button class="secondary" id="csvBtn">CSVを保存</button><button class="secondary" id="copyBtn">URL一覧をコピー</button></div>
+<div id="exStatus" class="status"></div>
+</details>
 <details id="proxyDetails"><summary>日本の一覧で検索する（自分用の検索中継を設定）</summary>
 <p class="hint">初期設定では https://linestickerurllist.vercel.app の中継が使われます。無料枠を超えるなどして使えなくなった場合は、自動的に第三者のプロキシに切り替わります（その場合、日本限定の公式スタンプは出ません）。</p>
 <p class="hint">LINE STOREは接続元の国で商品一覧が変わります。日本で動く小さな中継を自分で用意し、そのURLを下に入力すると、日本の一覧（公式の日本限定スタンプを含む）で検索できます。方法A: Cloudflare Workers（無料。Workers &amp; Pages → Create → Hello World → Edit code に貼り付け → Deploy。表示されたURLを入力）。方法C: Vercel（東京。スマホ可）。方法B: 自分のPCで動かす（保存して <code>python proxy.py</code> を実行し、http://127.0.0.1:8787 を入力。Chromeで許可を求められたら許可）。</p>
@@ -134,6 +134,7 @@ function extractPackId(value){
   m=s.match(/(?:stickershop\/product\/|line\.me\/S\/sticker\/|^)(\d{3,})(?:\/|$)/);
   return m?{kind:"sticker",id:m[1]}:null;
 }
+function exs(m,k=""){$("exStatus").className="status "+k;$("exStatus").textContent=m}
 function setStatus(msg,kind=""){ $("status").className="status "+kind; $("status").textContent=msg; }
 function buildRows(data){
   if(typeof data==="string") data=JSON.parse(data);
@@ -152,13 +153,16 @@ function buildRows(data){
 }
 const CAN_SHARE=(()=>{try{return typeof navigator.share==="function"&&typeof navigator.canShare==="function"&&navigator.canShare({files:[new File(["x"],"a.png",{type:"image/png"})]})}catch(e){return false}})();
 function lang(o){return o&&typeof o==="object"?(o.ja||o.en||Object.values(o)[0]||""):(o||"")}
+let curPack=null;
+const storeUrl=(kind,id)=>`https://store.line.me/${kind==="emoji"?"emojishop":"stickershop"}/product/${id}/ja`;
 function setPkHead(data){
-  const id=String(data.packageId||data.productId||""),h=$("pkHead");h.innerHTML="";
+  const id=String(data.packageId||data.productId||""),h=$("pkHead");h.innerHTML="";curPack={kind:data.stickers?"sticker":"emoji",id};
   const img=new Image();img.alt="";img.onerror=()=>img.remove();
   img.src=data.stickers?`https://stickershop.line-scdn.net/stickershop/v1/product/${id}/LINEStorePC/main.png`:`https://stickershop.line-scdn.net/sticonshop/v1/product/${id}/iPhone/main.png`;
   const d=document.createElement("div"),t=document.createElement("b"),a=document.createElement("div");
   t.textContent=lang(data.title)||"ID: "+id;a.className="hint";a.textContent=[lang(data.author),"ID: "+id].filter(Boolean).join("　");
-  d.append(t,a);h.append(img,d);
+  const lk=document.createElement("a");lk.href=storeUrl(curPack.kind,id);lk.target="_blank";lk.rel="noopener";lk.textContent="LINE STOREで開く";lk.style.cssText="font-size:12px;color:#85c8ff";
+  d.append(t,a,lk);h.append(img,d);
 }
 function renderRows(items){
   current=items;const g=$("igrid");g.innerHTML="";
@@ -224,6 +228,7 @@ function buildActions(item){
   const links=document.createElement("div");links.className="links";
   const lk=(url,label)=>{const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=label;links.append(a)};
   lk(item.staticUrl,"静止画を開く");if(item.animationUrl)lk(item.animationUrl,"アニメーションを開く");
+  if(curPack)lk(storeUrl(curPack.kind,curPack.id),"LINE STOREで開く");
   act.append(links);
 }
 async function fetchMeta(){
@@ -621,6 +626,7 @@ async function diag(){
   ss("接続テストの結果を「検索結果の生データ」に表示しました。","success");
 }
 $("diagBtn").onclick=diag;
+$("advLink").onclick=e=>{e.preventDefault();$("adv").open=true;$("adv").scrollIntoView({behavior:"smooth"})};
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 $("dClose").onclick=closeDetail;$("detail").onclick=e=>{if(e.target===$("detail"))closeDetail()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDetail()});
@@ -629,12 +635,13 @@ $("moreBtn").onclick=()=>runSearch(true);
 $("q").onkeydown=e=>{if(e.key==="Enter"&&!e.isComposing)runSearch(false)};
 $("fetchBtn").onclick=fetchMeta;
 $("parseBtn").onclick=()=>{try{buildRows($("metaText").value)}catch(e){setStatus("解析エラー: "+e.message,"error")}};
-$("copyBtn").onclick=()=>navigator.clipboard.writeText(current.map(x=>`${x.id}\t${x.staticUrl}\t${x.animationUrl}`).join("\n")).then(()=>setStatus("URL一覧をコピーしました。","success"));
+$("copyBtn").onclick=()=>current.length?navigator.clipboard.writeText(current.map(x=>`${x.id}\t${x.staticUrl}\t${x.animationUrl}`).join("\n")).then(()=>exs("URL一覧をコピーしました。","success")):exs("先に画像一覧を取得してください。","error");
 $("csvBtn").onclick=()=>{
+  if(!current.length){exs("先に画像一覧を取得してください。","error");return}
   const q=v=>'"'+String(v).replaceAll('"','""')+'"';
   const csv=["個別ID,静止画URL,アニメーションURL",...current.map(x=>[x.id,x.staticUrl,x.animationUrl].map(q).join(","))].join("\r\n");
   const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="line-sticker-urls.csv";a.click();URL.revokeObjectURL(a.href);
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="line-sticker-urls.csv";a.click();URL.revokeObjectURL(a.href);exs("CSVを保存しました。","success");
 };
 </script>
 </body>
