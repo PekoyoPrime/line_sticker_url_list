@@ -26,6 +26,8 @@ html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}main,.panel
 .igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}.tile{aspect-ratio:1;background:#0d131b;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer}.tile img{width:100%;height:100%;object-fit:contain;display:block}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:50}.overlay.hidden{display:none}.sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:100%;max-width:520px;max-height:88vh;overflow:auto}.dimg{display:block;margin:0 auto 10px;max-width:70%;max-height:220px;background:#0d131b;border-radius:10px;object-fit:contain}
 main{padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}@media (max-width:600px){main{margin:14px auto;padding:0 6px calc(120px + env(safe-area-inset-bottom,0px))}.panel{padding:12px}.sub{margin-bottom:14px}}
+.tile{position:relative}.tile .bd{position:absolute;right:3px;bottom:3px;font-size:11px;line-height:1;background:rgba(0,0,0,.65);border-radius:8px;padding:2px 4px}
+.hrow{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}.hrow img{width:44px;height:44px;object-fit:contain;background:#0d131b;border-radius:8px;flex:none}.hrow .m{min-width:0;flex:1}.hrow .m b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.libh{font-weight:650;margin:14px 0 6px}
 </style>
 </head>
 <body>
@@ -55,11 +57,17 @@ main{padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}@media (max-wi
 <div id="status" class="status">最初にメタデータの取得を試します。ブラウザ側のCORS制限で失敗する場合は、ページ下部の「高度な設定」にある貼り付け欄を使用してください。</div>
 </section>
 
-<section class="panel hidden" id="results">
-<div><strong>取得結果</strong>　<span id="count" class="count"></span></div>
-<p class="hint">画像をタップすると、IDやコピー・共有・保存などの操作が開きます。</p>
+<section class="panel" id="results">
+<div class="tabs" id="libTabs" style="margin-top:0"><button class="on" data-lib="result">取得結果</button><button data-lib="fav">お気に入り</button><button data-lib="hist">履歴</button></div>
+<div id="libResult">
+<p id="emptyMsg" class="hint" style="margin-top:12px">「画像一覧を取得」または検索結果の選択で、ここに画像一覧が表示されます。</p>
+<div><span id="count" class="count"></span></div>
+<p class="hint" id="tapHint" style="display:none">画像をタップすると、IDやコピー・共有・保存などの操作が開きます。</p>
 <div id="pkHead" class="pkhead"></div>
 <div id="igrid" class="igrid"></div>
+</div>
+<div id="libFav" class="hidden"><div id="favPacks"></div><div id="favItems"></div></div>
+<div id="libHist" class="hidden"><div class="actions" style="margin-top:12px"><button class="secondary smallbtn" id="histClear" style="margin:0">履歴を消去</button></div><div id="histList"></div></div>
 </section>
 
 <section class="panel">
@@ -118,7 +126,7 @@ main{padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}@media (max-wi
 </details>
 </main>
 <div id="detail" class="overlay hidden"><div class="sheet">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span id="dTitle" style="font-weight:650"></span><button class="secondary smallbtn" id="dClose" style="margin:0">閉じる</button></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span id="dTitle" style="font-weight:650"></span><span><button class="secondary smallbtn" id="dFav" style="margin:0 6px 0 0">☆ お気に入り</button><button class="secondary smallbtn" id="dClose" style="margin:0">閉じる</button></span></div>
 <img id="dImg" class="dimg" alt="">
 <div class="hint" style="text-align:center;margin-bottom:10px">ID: <b id="dId"></b> <button class="smallbtn secondary" id="dCopyId" style="display:inline-block;margin:0 0 0 6px">IDをコピー</button></div>
 <div id="dActs" class="act"></div>
@@ -141,57 +149,135 @@ function buildRows(data){
   let items;
   if(data&&Array.isArray(data.stickers)){
     const ids=[...new Set(data.stickers.map(x=>String(x.id??"")).filter(x=>/^\d+$/.test(x)))];
-    const known="hasAnimation" in data||"stickerResourceType" in data,anim=data.hasAnimation===true||/ANIMATION/.test(data.stickerResourceType||"");
-    items=ids.map(id=>{const b=`https://stickershop.line-scdn.net/stickershop/v1/sticker/${id}/iPhone/`;return{id,staticUrl:b+"sticker@2x.png",animationUrl:(known&&!anim)?"":b+"sticker_animation@2x.png?v=1",probe:!known}});
+    const known="hasAnimation" in data||"stickerResourceType" in data,anim=data.hasAnimation===true||/ANIMATION/.test(data.stickerResourceType||""),snd=data.hasSound===true||/SOUND/.test(data.stickerResourceType||"");
+    items=ids.map(id=>{const b=`https://stickershop.line-scdn.net/stickershop/v1/sticker/${id}/iPhone/`;return{id,staticUrl:b+"sticker@2x.png",animationUrl:(known&&!anim)?"":b+"sticker_animation@2x.png?v=1",probe:!known,soundUrl:snd?b+"sticker_sound.m4a":"",soundProbe:snd}});
   }else if(data&&data.productId&&Array.isArray(data.orders)){
     const b=`https://stickershop.line-scdn.net/sticonshop/v1/sticon/${data.productId}/iPhone/`,anim=data.sticonResourceType==="ANIMATION";
     items=data.orders.map(o=>String(o).padStart(3,"0")).map(i=>({id:i,staticUrl:b+i+".png",animationUrl:anim?b+i+"_animation.png":""}));
   }else throw new Error("JSON内に stickers 配列（スタンプ）または orders 配列（絵文字）が見つかりません。");
   if(!items.length) throw new Error("個別IDが見つかりませんでした。");
-  renderRows(items);setPkHead(data);
+  setPkHead(data);renderRows(items);addHistory(curPack);
   setStatus(`成功：${items.length}件を取得しました。`,"success");
 }
 const CAN_SHARE=(()=>{try{return typeof navigator.share==="function"&&typeof navigator.canShare==="function"&&navigator.canShare({files:[new File(["x"],"a.png",{type:"image/png"})]})}catch(e){return false}})();
+const LSK={fp:"lsFavPacks",fi:"lsFavItems",hs:"lsHistory"};
+const lsGet=k=>{try{const v=JSON.parse(localStorage.getItem(k)||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const packThumb=(kind,id)=>kind==="emoji"?`https://stickershop.line-scdn.net/sticonshop/v1/product/${id}/iPhone/main.png`:`https://stickershop.line-scdn.net/stickershop/v1/product/${id}/LINEStorePC/main.png`;
+const samePack=(a,b)=>a.kind===b.kind&&a.id===b.id;
+const isFavPack=p=>lsGet(LSK.fp).some(x=>samePack(x,p));
+function togglePack(p){const a=lsGet(LSK.fp),i=a.findIndex(x=>samePack(x,p));if(i>=0)a.splice(i,1);else a.unshift({kind:p.kind,id:p.id,title:p.title||"",author:p.author||""});lsSet(LSK.fp,a)}
+const itemKey=it=>`${it.pk.kind}:${it.pk.id}:${it.id}`;
+const isFavItem=it=>!!it.pk&&lsGet(LSK.fi).some(x=>x.key===itemKey(it));
+function toggleItem(it){
+  if(!it.pk)return;const a=lsGet(LSK.fi),k=itemKey(it),i=a.findIndex(x=>x.key===k);
+  if(i>=0)a.splice(i,1);else a.unshift({key:k,id:it.id,staticUrl:it.staticUrl,animationUrl:it.animationUrl||"",soundUrl:it.soundUrl||"",pk:it.pk});
+  lsSet(LSK.fi,a);
+}
+function addHistory(p){
+  if(!p)return;const a=lsGet(LSK.hs).filter(x=>!samePack(x,p));
+  a.unshift({kind:p.kind,id:p.id,title:p.title||"",author:p.author||"",ts:Date.now()});lsSet(LSK.hs,a.slice(0,50));
+}
+async function openPack(p){$("packId").value=p.id;const before=current;await fetchMeta();if(current!==before)$("results").scrollIntoView({behavior:"smooth"})}
+const emptyNote=t=>{const d=document.createElement("p");d.className="hint";d.textContent=t;return d};
+function packCard(p){
+  const d=document.createElement("div");d.className="hit";
+  const im=new Image();im.loading="lazy";im.src=packThumb(p.kind,p.id);im.alt=p.title||p.id;im.onerror=()=>im.removeAttribute("src");
+  const t=document.createElement("div");t.className="t";t.textContent=p.title||"ID: "+p.id;
+  d.append(im,t);d.onclick=()=>openPack(p);return d;
+}
+function renderFav(){
+  const fp=lsGet(LSK.fp),fi=lsGet(LSK.fi),P=$("favPacks"),I=$("favItems");P.innerHTML="";I.innerHTML="";
+  if(!fp.length&&!fi.length){P.append(emptyNote("お気に入りはまだありません。パック名の下の「☆ お気に入り」や、画像を開いたときの「☆ お気に入り」で追加できます。"));return}
+  if(fp.length){
+    const h=document.createElement("div");h.className="libh";h.textContent="パック";
+    const g=document.createElement("div");g.className="hgrid";for(const p of fp)g.append(packCard(p));P.append(h,g);
+  }
+  if(fi.length){
+    const h=document.createElement("div");h.className="libh";h.textContent="画像";
+    const g=document.createElement("div");g.className="igrid";
+    for(const f of fi){
+      const t=document.createElement("div");t.className="tile";
+      const im=document.createElement("img");im.loading="lazy";im.src=f.staticUrl;im.alt="ID "+f.id;im.onerror=()=>im.removeAttribute("src");t.append(im);
+      if(f.soundUrl){const b=document.createElement("span");b.className="bd";b.textContent="🔊";t.append(b)}
+      t.onclick=()=>openDetail({id:f.id,staticUrl:f.staticUrl,animationUrl:f.animationUrl,soundUrl:f.soundUrl,pk:f.pk,probe:false,soundProbe:false});
+      g.append(t);
+    }
+    I.append(h,g);
+  }
+}
+function renderHist(){
+  const a=lsGet(LSK.hs),box=$("histList");box.innerHTML="";
+  if(!a.length){box.append(emptyNote("履歴はまだありません。画像一覧を取得すると、ここに記録されます。"));return}
+  for(const p of a){
+    const r=document.createElement("div");r.className="hrow";
+    const im=new Image();im.loading="lazy";im.src=packThumb(p.kind,p.id);im.alt="";im.onerror=()=>im.removeAttribute("src");
+    const m=document.createElement("div");m.className="m";
+    const b=document.createElement("b");b.textContent=p.title||"ID: "+p.id;
+    const sub=document.createElement("div");sub.className="hint";
+    let when="";try{when=new Date(p.ts).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}catch(e){}
+    sub.textContent=[(p.kind==="emoji"?"絵文字":"スタンプ"),"ID: "+p.id,when].filter(Boolean).join("・");
+    m.append(b,sub);r.append(im,m);r.onclick=()=>openPack(p);box.append(r);
+  }
+}
+function setLib(name){
+  document.querySelectorAll("#libTabs button").forEach(b=>b.classList.toggle("on",b.dataset.lib===name));
+  $("libResult").classList.toggle("hidden",name!=="result");$("libFav").classList.toggle("hidden",name!=="fav");$("libHist").classList.toggle("hidden",name!=="hist");
+  if(name==="fav")renderFav();if(name==="hist")renderHist();
+}
 function lang(o){return o&&typeof o==="object"?(o.ja||o.en||Object.values(o)[0]||""):(o||"")}
 let curPack=null;
 const storeUrl=(kind,id)=>`https://store.line.me/${kind==="emoji"?"emojishop":"stickershop"}/product/${id}/ja`;
 function setPkHead(data){
-  const id=String(data.packageId||data.productId||""),h=$("pkHead");h.innerHTML="";curPack={kind:data.stickers?"sticker":"emoji",id};
-  const img=new Image();img.alt="";img.onerror=()=>img.remove();
-  img.src=data.stickers?`https://stickershop.line-scdn.net/stickershop/v1/product/${id}/LINEStorePC/main.png`:`https://stickershop.line-scdn.net/sticonshop/v1/product/${id}/iPhone/main.png`;
+  const id=String(data.packageId||data.productId||""),h=$("pkHead");h.innerHTML="";
+  const kind=data.stickers?"sticker":"emoji",title=lang(data.title),author=lang(data.author),p={kind,id,title,author};curPack=p;
+  const img=new Image();img.alt="";img.onerror=()=>img.remove();img.src=packThumb(kind,id);
   const d=document.createElement("div"),t=document.createElement("b"),a=document.createElement("div");
-  t.textContent=lang(data.title)||"ID: "+id;a.className="hint";a.textContent=[lang(data.author),"ID: "+id].filter(Boolean).join("　");
-  const lk=document.createElement("a");lk.href=storeUrl(curPack.kind,id);lk.target="_blank";lk.rel="noopener";lk.textContent="LINE STOREで開く";lk.style.cssText="font-size:12px;color:#85c8ff";
-  d.append(t,a,lk);h.append(img,d);
+  t.textContent=title||"ID: "+id;a.className="hint";a.textContent=[author,"ID: "+id].filter(Boolean).join("　");
+  const lk=document.createElement("a");lk.href=storeUrl(kind,id);lk.target="_blank";lk.rel="noopener";lk.textContent="LINE STOREで開く";lk.style.cssText="font-size:12px;color:#85c8ff";
+  const fb=document.createElement("button");fb.className="smallbtn secondary";fb.style.cssText="display:inline-block;width:auto;margin:6px 0 0;";
+  const upd=()=>{fb.textContent=isFavPack(p)?"★ お気に入り済み":"☆ お気に入り"};upd();
+  fb.onclick=()=>{togglePack(p);upd();if(!$("libFav").classList.contains("hidden"))renderFav()};
+  const row=document.createElement("div");row.append(lk);
+  d.append(t,a,row,fb);h.append(img,d);
 }
 function renderRows(items){
   current=items;const g=$("igrid");g.innerHTML="";
   for(const item of current){
+    item.pk=curPack;
     const t=document.createElement("div");t.className="tile";
     const im=document.createElement("img");im.loading="lazy";im.src=item.staticUrl;im.alt="ID "+item.id;im.onerror=()=>im.removeAttribute("src");
-    t.append(im);t.onclick=()=>openDetail(item);g.append(t);
+    t.append(im);
+    if(item.soundUrl){const b=document.createElement("span");b.className="bd";b.textContent="🔊";t.append(b)}
+    t.onclick=()=>openDetail(item);g.append(t);
   }
-  $("count").textContent=`${current.length}件`;
-  $("results").classList.remove("hidden");
+  $("count").textContent=`${current.length}件`;$("emptyMsg").style.display="none";$("tapHint").style.display="";
+  setLib("result");
 }
-function closeDetail(){$("detail").classList.add("hidden")}
-function showSheet(img,title,id){
+let snd=null;
+function stopSnd(){if(snd){try{snd.pause()}catch(e){}snd=null}}
+function closeDetail(){stopSnd();$("detail").classList.add("hidden")}
+function showSheet(img,title,id,fav){
+  $("dFav").classList.toggle("hidden",!fav);stopSnd();
   $("dImg").onerror=null;$("dImg").src=img;$("dTitle").textContent=title||"";$("dId").textContent=id;$("dStatus").textContent="";$("dActs").innerHTML="";
   $("dCopyId").onclick=()=>navigator.clipboard.writeText(id).then(()=>cst("IDをコピーしました。","success"),()=>cst("コピーできませんでした。","error"));
   $("detail").classList.remove("hidden");
 }
 function openTheme(it){
-  showSheet(it.icon,it.title,it.id);
+  showSheet(it.icon,it.title,it.id,false);
   if(it.url){const a=document.createElement("a");a.href="https://store.line.me"+it.url;a.target="_blank";a.rel="noopener";a.textContent="LINE STOREで開く";$("dActs").append(a)}
 }
 function openDetail(item){
-  showSheet(item.staticUrl,"",item.id);
+  showSheet(item.staticUrl,"",item.id,true);
+  const upd=()=>{$("dFav").textContent=isFavItem(item)?"★ お気に入り済み":"☆ お気に入り"};upd();
+  $("dFav").onclick=()=>{toggleItem(item);upd();if(!$("libFav").classList.contains("hidden"))renderFav()};
   const build=()=>{
     buildActions(item);
     if(item.animationUrl){$("dImg").onerror=()=>{$("dImg").onerror=null;$("dImg").src=item.staticUrl};$("dImg").src=item.animationUrl}
-  };
-  if(item.probe&&item.animationUrl){item.probe=false;const im=new Image();im.onload=build;im.onerror=()=>{item.animationUrl="";build()};im.src=item.animationUrl}
-  else build();
+  },tasks=[];
+  if(item.probe&&item.animationUrl){item.probe=false;tasks.push(new Promise(r=>{const im=new Image();im.onload=r;im.onerror=()=>{item.animationUrl="";r()};im.src=item.animationUrl}))}
+  if(item.soundProbe&&item.soundUrl){item.soundProbe=false;tasks.push(fetch(item.soundUrl,{method:"HEAD"}).then(r=>{if(r.status===404||r.status===403)item.soundUrl=""}).catch(()=>{}))}
+  if(tasks.length)Promise.all(tasks).then(build);else build();
 }
 function buildActions(item){
   const act=$("dActs");act.innerHTML="";
@@ -225,10 +311,16 @@ function buildActions(item){
     if(CAN_SHARE)shareBtn("アニメーションを共有",async()=>new File([await convertBuf(await fetchBuf(item.animationUrl),"gif")],`${item.id}.gif`,{type:"image/gif"}));
     btn("変換して保存",async()=>{const f=$("fmt").value;cst("変換中…");save(await convertBuf(await fetchBuf(item.animationUrl),f),`${item.id}.${f}`);return `${item.id}.${f} を保存しました。`});
   }
+  if(item.soundUrl){
+    btn("ボイスを再生",async()=>{stopSnd();snd=new Audio(item.soundUrl);await snd.play();return "ボイスを再生しました。"});
+    if(CAN_SHARE)shareBtn("ボイスを共有",async()=>new File([await(await fetch(item.soundUrl,{mode:"cors"})).blob()],`${item.id}.m4a`,{type:"audio/mp4"}));
+    btn("ボイスを保存",async()=>{cst("ボイスを取得中…");const r=await fetch(item.soundUrl,{mode:"cors"});if(!r.ok)throw new Error("HTTP "+r.status);save(new Blob([await r.arrayBuffer()],{type:"audio/mp4"}),`${item.id}.m4a`);return `${item.id}.m4a を保存しました。`});
+  }
   const links=document.createElement("div");links.className="links";
   const lk=(url,label)=>{const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=label;links.append(a)};
   lk(item.staticUrl,"静止画を開く");if(item.animationUrl)lk(item.animationUrl,"アニメーションを開く");
-  if(curPack)lk(storeUrl(curPack.kind,curPack.id),"LINE STOREで開く");
+  const pk=item.pk||curPack;if(pk)lk(storeUrl(pk.kind,pk.id),"LINE STOREで開く");
+  if(item.soundUrl)lk(item.soundUrl,"ボイスを開く");
   act.append(links);
 }
 async function fetchMeta(){
@@ -497,8 +589,7 @@ function hitCard(it,cat){
   d.append(img,t,p);
   d.onclick=async()=>{
     if(cat==="theme"){openTheme(it);return}
-    $("packId").value=it.id;await fetchMeta();
-    if(!$("results").classList.contains("hidden"))$("results").scrollIntoView({behavior:"smooth"});
+    await openPack(it);
   };
   return d;
 }
@@ -628,6 +719,8 @@ async function diag(){
 $("diagBtn").onclick=diag;
 $("advLink").onclick=e=>{e.preventDefault();$("adv").open=true;$("adv").scrollIntoView({behavior:"smooth"})};
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+document.querySelectorAll("#libTabs button").forEach(b=>b.onclick=()=>setLib(b.dataset.lib));
+$("histClear").onclick=()=>{if(confirm("履歴をすべて消去しますか？")){lsSet(LSK.hs,[]);renderHist()}};
 $("dClose").onclick=closeDetail;$("detail").onclick=e=>{if(e.target===$("detail"))closeDetail()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDetail()});
 $("searchBtn").onclick=()=>runSearch(false);
@@ -635,11 +728,11 @@ $("moreBtn").onclick=()=>runSearch(true);
 $("q").onkeydown=e=>{if(e.key==="Enter"&&!e.isComposing)runSearch(false)};
 $("fetchBtn").onclick=fetchMeta;
 $("parseBtn").onclick=()=>{try{buildRows($("metaText").value)}catch(e){setStatus("解析エラー: "+e.message,"error")}};
-$("copyBtn").onclick=()=>current.length?navigator.clipboard.writeText(current.map(x=>`${x.id}\t${x.staticUrl}\t${x.animationUrl}`).join("\n")).then(()=>exs("URL一覧をコピーしました。","success")):exs("先に画像一覧を取得してください。","error");
+$("copyBtn").onclick=()=>current.length?navigator.clipboard.writeText(current.map(x=>`${x.id}\t${x.staticUrl}\t${x.animationUrl}\t${x.soundUrl||""}`).join("\n")).then(()=>exs("URL一覧をコピーしました。","success")):exs("先に画像一覧を取得してください。","error");
 $("csvBtn").onclick=()=>{
   if(!current.length){exs("先に画像一覧を取得してください。","error");return}
   const q=v=>'"'+String(v).replaceAll('"','""')+'"';
-  const csv=["個別ID,静止画URL,アニメーションURL",...current.map(x=>[x.id,x.staticUrl,x.animationUrl].map(q).join(","))].join("\r\n");
+  const csv=["個別ID,静止画URL,アニメーションURL,ボイスURL",...current.map(x=>[x.id,x.staticUrl,x.animationUrl,x.soundUrl||""].map(q).join(","))].join("\r\n");
   const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="line-sticker-urls.csv";a.click();URL.revokeObjectURL(a.href);exs("CSVを保存しました。","success");
 };
