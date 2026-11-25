@@ -242,7 +242,7 @@ async function renderReco(){
   for(const x of[...hist.slice(0,3),...favs.slice(0,2)]){const k=x.kind+":"+x.id;if(!sk.has(k)){sk.add(k);seeds.push(x)}}
   await Promise.all([
     ...seeds.map(async x=>{const d=await getRelated(x);if(!d)return;d.others.forEach(y=>add(y,3));d.related.forEach(y=>add(y,1))}),
-    ...qs.slice(0,2).map(async q=>{try{const r=await searchCat("sticker",0,q);r.items.slice(0,8).forEach(y=>add({kind:"sticker",id:y.id,title:y.title,sound:y.snd},2))}catch(e){}})
+    ...qs.slice(0,2).map(async q=>{try{const r=await searchCat("sticker",0,q,["OFFICIAL","ALL"]);r.items.slice(0,8).forEach(y=>add({kind:"sticker",id:y.id,title:y.title,sound:y.snd},2))}catch(e){}})
   ]);
   const list=[...pool.values()].sort((a,b)=>b.w-a.w).slice(0,15),row=$("recoRow");row.innerHTML="";
   if(!list.length){panel.classList.add("hidden");return}
@@ -665,8 +665,8 @@ function pickItems(j,cat,q){
 const CATS=["sticker","emoji","theme"],CAT_NAME={sticker:"スタンプ",emoji:"絵文字",theme:"着せかえ"};
 let directOk=true,lastRaw=[],lastSrc="",lastMineErr="";
 async function reach(u){try{await fetch(u,{mode:"no-cors",cache:"no-store"});return "（サーバーには届いていますが、CORSヘッダーがありません。中継の関数のエラー・停止の可能性）"}catch(e){return "（サーバーに届いていません。URLの誤り・ネットワーク・拡張機能のブロックの可能性）"}}
-async function searchCat(cat,offset,q=sQuery){
-  const type=$("stype").value,types=type==="ALL"?["ALL","OFFICIAL","CREATORS"]:[type];
+async function searchCat(cat,offset,q=sQuery,only){
+  const type=$("stype").value,types=only||(type==="ALL"?["ALL","OFFICIAL","CREATORS"]:[type]);
   const enc=encodeURIComponent(q),qs=`offset=${offset}&limit=${PAGE}`,bases=[];
   if(proxyUrl())bases.push({kind:"mine",mk:t=>`${proxyUrl()}/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`});
   if(directOk)bases.push({kind:"direct",mk:t=>`https://store.line.me/api/search/${cat}?query=${enc}&category=${cat}&type=${t}&${qs}`});
@@ -678,7 +678,7 @@ async function searchCat(cat,offset,q=sQuery){
       try{
         let j,info,tries=0;
         for(;;){
-          const r=await fetch(u,bs.kind==="mine"?{cache:"no-store"}:{headers:{"Accept-Language":"ja"}});if(!r.ok)throw new Error("HTTP "+r.status);
+          const r=await fetch(u,bs.kind==="mine"?{cache:"no-store"}:{headers:{"Accept-Language":"ja"}});if(!r.ok){let b="";try{b=(await r.text()).slice(0,120)}catch(e){}throw new Error("HTTP "+r.status+(b?" "+b:""))}
           j=await r.json();info=pickItems(j,cat,q);
           if(bs.kind==="mine"&&tries<2&&info.items.some(x=>x.price&&!/[￥¥円]/.test(x.price))){tries++;await sleep(250);continue}
           break;
@@ -814,43 +814,54 @@ const VERCEL_FN=String.raw`module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "*");
   if (req.method === "OPTIONS") return res.status(204).end();
-  const u = new URL(req.url, "http://localhost");
-  const cat = u.pathname.split("/").pop();
-  const headers = { "Accept-Language": "ja-JP,ja;q=0.9", "User-Agent": "Mozilla/5.0" };
-  if (cat === "product") {
-    const emoji = u.searchParams.get("kind") === "emoji";
-    const kind = emoji ? "emojishop" : "stickershop";
-    const id = (u.searchParams.get("id") || "").replace(/[^0-9a-f]/gi, "");
-    if (!id) return res.status(400).send("bad id");
-    const html = await (await fetch("https://store.line.me/" + kind + "/product/" + id + "/ja", { headers })).text();
-    const dec = (x) => x.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
-    const metas = html.match(/<meta\b[^>]*>/g) || [];
-    const metaContent = (key) => { for (const t of metas) { if (new RegExp('(?:property|name)="' + key + '"', "i").test(t)) { const c = t.match(/\bcontent="([^"]*)"/); if (c) return dec(c[1]); } } return ""; };
-    const description = metaContent("og:description") || metaContent("description");
-    const am = html.match(/\/(?:stickershop|emojishop|themeshop)\/author\/(\d+)\/ja[^>]*>\s*([^<]+?)\s*</);
-    const iRel = html.search(/>\s*関連(スタンプ|絵文字)\s*</);
-    const iOth = html.search(/>[^<]*の他の作品\s*</);
-    const parse = (seg) => {
-      const out = [], seen = new Set();
-      const re = /(<a\b[^>]*href="[^"]*\/(stickershop|emojishop)\/product\/([0-9a-f]+)\/ja\?from=[^"]*"[^>]*>)([\s\S]*?)<\/a>/g;
-      let m;
-      while ((m = re.exec(seg))) {
-        if (m[3] === id || seen.has(m[3])) continue;
-        seen.add(m[3]);
-        const t = (m[1].match(/\btitle="([^"]*)"/) || [])[1] || m[4].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-        out.push({ id: m[3], kind: m[2] === "emojishop" ? "emoji" : "sticker", title: dec(t), sound: /Sound/i.test(m[4]), anim: /Animation/i.test(m[4]) });
-      }
-      return out;
+  try {
+    const u = new URL(req.url, "http://localhost");
+    const cat = u.pathname.split("/").pop();
+    const headers = { "Accept-Language": "ja-JP,ja;q=0.9", "User-Agent": "Mozilla/5.0" };
+    const get = async (url) => {
+      const ac = new AbortController();
+      const tm = setTimeout(() => ac.abort(), 9000);
+      try { return await fetch(url, { headers, signal: ac.signal }); } finally { clearTimeout(tm); }
     };
-    const others = iOth >= 0 ? parse(html.slice(iOth, iRel > iOth ? iRel : undefined)) : [];
-    const related = iRel >= 0 ? parse(html.slice(iRel)) : [];
+    if (cat === "product") {
+      const emoji = u.searchParams.get("kind") === "emoji";
+      const kind = emoji ? "emojishop" : "stickershop";
+      const id = (u.searchParams.get("id") || "").replace(/[^0-9a-f]/gi, "");
+      if (!id) return res.status(400).send("bad id");
+      const html = await (await get("https://store.line.me/" + kind + "/product/" + id + "/ja")).text();
+      const dec = (x) => x.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+      const metas = html.match(/<meta\b[^>]*>/g) || [];
+      const metaContent = (key) => { for (const t of metas) { if (new RegExp('(?:property|name)="' + key + '"', "i").test(t)) { const c = t.match(/\bcontent="([^"]*)"/); if (c) return dec(c[1]); } } return ""; };
+      const description = metaContent("og:description") || metaContent("description");
+      const am = html.match(/\/(?:stickershop|emojishop|themeshop)\/author\/(\d+)\/ja[^>]*>\s*([^<]+?)\s*</);
+      const iRel = html.search(/>\s*関連(スタンプ|絵文字)\s*</);
+      const iOth = html.search(/>[^<]*の他の作品\s*</);
+      const parse = (seg) => {
+        const out = [], seen = new Set();
+        const re = /(<a\b[^>]*href="[^"]*\/(stickershop|emojishop)\/product\/([0-9a-f]+)\/ja\?from=[^"]*"[^>]*>)([\s\S]*?)<\/a>/g;
+        let m;
+        while ((m = re.exec(seg))) {
+          if (m[3] === id || seen.has(m[3])) continue;
+          seen.add(m[3]);
+          const t = (m[1].match(/\btitle="([^"]*)"/) || [])[1] || m[4].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+          out.push({ id: m[3], kind: m[2] === "emojishop" ? "emoji" : "sticker", title: dec(t), sound: /Sound/i.test(m[4]), anim: /Animation/i.test(m[4]) });
+        }
+        return out;
+      };
+      const others = iOth >= 0 ? parse(html.slice(iOth, iRel > iOth ? iRel : undefined)) : [];
+      const related = iRel >= 0 ? parse(html.slice(iRel)) : [];
+      res.setHeader("Content-Type", "application/json");
+      return res.status(200).send(JSON.stringify({ id, kind: emoji ? "emoji" : "sticker", description, author: am ? { id: am[1], name: dec(am[2]) } : null, others, related }));
+    }
+    if (!["sticker", "emoji", "theme", "family"].includes(cat)) return res.status(404).send("not found");
+    const r = await get("https://store.line.me/api/search/" + cat + u.search);
     res.setHeader("Content-Type", "application/json");
-    return res.status(200).send(JSON.stringify({ id, kind: emoji ? "emoji" : "sticker", description, author: am ? { id: am[1], name: dec(am[2]) } : null, others, related }));
+    return res.status(r.status).send(await r.text());
+  } catch (e) {
+    res.setHeader("Content-Type", "application/json");
+    const why = (e && e.cause && (e.cause.code || e.cause.message)) || (e && e.message) || String(e);
+    return res.status(502).send(JSON.stringify({ error: String(why) }));
   }
-  if (!["sticker", "emoji", "theme", "family"].includes(cat)) return res.status(404).send("not found");
-  const r = await fetch("https://store.line.me/api/search/" + cat + u.search, { headers });
-  res.status(r.status).setHeader("Content-Type", "application/json");
-  res.send(await r.text());
 };`;
 $("vercelJson").value=VERCEL_JSON;$("vercelFn").value=VERCEL_FN;
 $("vjCopy").onclick=()=>navigator.clipboard.writeText(VERCEL_JSON).then(()=>ss("vercel.json をコピーしました。","success"));
@@ -868,6 +879,7 @@ async function diag(){
       try{
         const r=await fetch(mk(t)),txt=await r.text();let j;
         try{j=JSON.parse(txt)}catch(e){lines.push(`[${name}] ${t}: HTTP ${r.status} JSON以外: ${txt.slice(0,80)}`);continue}
+        if(j.error){lines.push(`[${name==="自分用の中継"?name+" "+proxyUrl():name}] ${t}: HTTP ${r.status} 中継のエラー: ${j.error}`);continue}
         const it=Array.isArray(j.items)?j.items:[];
         lines.push(`[${name}] ${t}: HTTP ${r.status} 件数=${j.totalCount} 価格例=${(it[0]||{}).priceString||"-"} 先頭=${it.slice(0,3).map(x=>titleOf(x)).join(" / ")}`);
       }catch(e){lines.push(`[${name==="自分用の中継"?name+" "+proxyUrl():name}] ${t}: ${e.message}${name==="自分用の中継"&&e instanceof TypeError?await reach(mk(t)):""}`)}
