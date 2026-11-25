@@ -31,15 +31,16 @@ main{padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}@media (max-wi
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chips button{background:#263446;border:1px solid #40536a;color:var(--text);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:500}.chips button.clr{background:none;border:none;color:var(--muted);text-decoration:underline}
 .hscroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}.hscroll .hit{flex:0 0 76px}
 .hit .wrap{position:relative}.hit .bd{position:absolute;right:3px;bottom:3px;font-size:11px;line-height:1;background:rgba(0,0,0,.65);border-radius:8px;padding:2px 4px}
-#gearBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:8px;z-index:40;width:38px;height:38px;padding:0;border-radius:50%;opacity:.9}h1{padding-right:44px}
+
 video.vv{display:block;width:100%;max-height:240px;background:#000;border-radius:10px;margin:8px 0}
 @media (max-width:600px){.hgrid,.igrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.desc{white-space:pre-wrap;color:var(--muted);font-size:14px;line-height:1.7;margin:0}
 </style>
 </head>
 <body>
 <main>
 <h1>LINEスタンプ 個別URL一覧</h1>
-<p class="sub">スタンプセットIDを入力すると、各スタンプの個別ID・静止画URL・アニメーションURLを一覧化します。　<a href="#adv" id="advLink" style="color:#85c8ff;white-space:nowrap">高度な設定 ↓</a></p>
+<p class="sub">スタンプセットIDを入力すると、各スタンプの個別ID・静止画URL・アニメーションURLを一覧化します。　<a href="#adv" id="advLink" style="color:#85c8ff;white-space:nowrap">高度な設定</a></p>
 
 <section class="panel hidden" id="recoPanel">
 <div class="libh" style="margin-top:0">おすすめ <span class="hint">（閲覧・お気に入り・検索の履歴から）</span></div>
@@ -139,7 +140,6 @@ video.vv{display:block;width:100%;max-height:240px;background:#000;border-radius
 </details>
 </div></div>
 </main>
-<button id="gearBtn" class="secondary" aria-label="高度な設定">⚙</button>
 <div id="detail" class="overlay hidden"><div class="sheet">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span id="dTitle" style="font-weight:650"></span><span><button class="secondary smallbtn" id="dFav" style="margin:0 6px 0 0">☆ お気に入り</button><button class="secondary smallbtn" id="dClose" style="margin:0">閉じる</button></span></div>
 <img id="dImg" class="dimg" alt="">
@@ -203,7 +203,7 @@ const relMem=new Map();
 async function getRelated(p){
   const key=p.kind+":"+p.id;if(relMem.has(key))return relMem.get(key);
   let o={};try{o=JSON.parse(localStorage.getItem(LSK.rel)||"{}")}catch(e){}
-  if(o[key]&&Date.now()-o[key].ts<43200000){relMem.set(key,o[key].d);return o[key].d}
+  if(o[key]&&o[key].d&&"description" in o[key].d&&Date.now()-o[key].ts<43200000){relMem.set(key,o[key].d);return o[key].d}
   try{
     const r=await fetch(`${proxyUrl()}/api/search/product?id=${encodeURIComponent(p.id)}&kind=${p.kind}`,{cache:"no-store"});
     if(!r.ok)throw new Error("HTTP "+r.status);
@@ -226,8 +226,12 @@ async function loadRelated(p){
     for(const x of list.slice(0,12))g.append(packCard({kind:x.kind,id:x.id,title:x.title,snd:x.sound}));
     box.append(h,g);
   };
+  if(d.description){
+    const h=document.createElement("div");h.className="libh";h.textContent=p.kind==="emoji"?"この絵文字の説明":"このスタンプの説明";
+    const t=document.createElement("p");t.className="desc";t.textContent=d.description;box.append(h,t);
+  }
   sec(`${(d.author&&d.author.name)||"同じ出版元"}の他の作品`,d.others);sec("関連スタンプ",d.related);
-  if(!d.others.length&&!d.related.length)box.append(emptyNote("関連作品が見つかりませんでした。"));
+  if(!d.others.length&&!d.related.length&&!d.description)box.append(emptyNote("関連作品が見つかりませんでした。"));
 }
 let recoT=null;function scheduleReco(){clearTimeout(recoT);recoT=setTimeout(renderReco,1500)}
 async function renderReco(){
@@ -659,7 +663,8 @@ function pickItems(j,cat,q){
   return{items,path:use.map(c=>c.path||"(root)").join(" + "),paths:cands.map(x=>`${x.path||"(root)"}: ${x.good.length}件、キーワード一致 ${score(x)}件`)};
 }
 const CATS=["sticker","emoji","theme"],CAT_NAME={sticker:"スタンプ",emoji:"絵文字",theme:"着せかえ"};
-let directOk=true,lastRaw=[],lastSrc="";
+let directOk=true,lastRaw=[],lastSrc="",lastMineErr="";
+async function reach(u){try{await fetch(u,{mode:"no-cors",cache:"no-store"});return "（サーバーには届いていますが、CORSヘッダーがありません。中継の関数のエラー・停止の可能性）"}catch(e){return "（サーバーに届いていません。URLの誤り・ネットワーク・拡張機能のブロックの可能性）"}}
 async function searchCat(cat,offset,q=sQuery){
   const type=$("stype").value,types=type==="ALL"?["ALL","OFFICIAL","CREATORS"]:[type];
   const enc=encodeURIComponent(q),qs=`offset=${offset}&limit=${PAGE}`,bases=[];
@@ -675,7 +680,7 @@ async function searchCat(cat,offset,q=sQuery){
         for(;;){
           const r=await fetch(u,bs.kind==="mine"?{cache:"no-store"}:{headers:{"Accept-Language":"ja"}});if(!r.ok)throw new Error("HTTP "+r.status);
           j=await r.json();info=pickItems(j,cat,q);
-          if(bs.kind==="mine"&&tries<3&&info.items.some(x=>x.price&&!/[￥¥円]/.test(x.price))){tries++;await sleep(250);continue}
+          if(bs.kind==="mine"&&tries<2&&info.items.some(x=>x.price&&!/[￥¥円]/.test(x.price))){tries++;await sleep(250);continue}
           break;
         }
         raw.push(`# type=${t} 取得元: ${name}${tries?`（ドル表記のため${tries}回再取得）`:""}\n配列: ${info.paths.join(" / ")||"なし"}\n`+JSON.stringify(j,null,1).slice(0,2000));
@@ -683,7 +688,10 @@ async function searchCat(cat,offset,q=sQuery){
         for(const it of info.items)if(!seen.has(it.id)){seen.add(it.id);items.push(it)}
         if(info.items.length>=PAGE)full=true;
         break;
-      }catch(e){if(bs.kind==="direct")directOk=false;errs.push(`${t} ${name}: ${e.message}`)}
+      }catch(e){
+        if(bs.kind==="direct")directOk=false;
+        let why=e.message;if(bs.kind==="mine"){if(e instanceof TypeError)why+=await reach(u);lastMineErr=why}
+        errs.push(`${t} ${bs.kind==="mine"?"自分用の中継("+new URL(u).host+")":name}: ${why}`)}
     }
   }
   const nq=norm(q),rank=o=>(norm(o.title).includes(nq)?2:0)+((o.sub==="OFFICIAL"||o.sub==="GENERAL")?1:0);
@@ -734,6 +742,7 @@ function renderHits(){
   }
   const got=lastRaw.some(x=>x.includes("# type="));
   if(!total)ss(got?"該当なし、または結果の形式を解釈できませんでした。":`検索できませんでした。\n${lastRaw.filter(x=>x.startsWith("エラー")).join("\n")}\nLINE STOREのWebサイトやアプリで検索し、商品ページのURLを下の入力欄に貼り付けてください。`,got?"":"error");
+  else if(lastMineErr&&!lastSrc.includes("自分用の中継"))ss(`${total}件表示中（価格表示の例: ${price||"不明"}／取得元: ${lastSrc}）\n⚠ 自分用の中継（${proxyUrl()}）に接続できなかったため、日本の一覧ではなくドル表記になります。\n原因: ${lastMineErr}\n高度な設定の「接続テスト」でも確認できます。`,"error");
   else ss(`${total}件表示中（価格表示の例: ${price||"不明"}／取得元: ${lastSrc}）`,"success");
   $("moreBtn").classList.toggle("hidden",!(tab!=="all"&&cache[tab]&&cache[tab].full));
 }
@@ -746,7 +755,7 @@ async function runSearch(more){
   const q=$("q").value.trim();
   if(!q){ss("キーワードを入力してください。","error");return}
   if(!more){sQuery=q;cache={};addQuery(q)}
-  lastRaw=[];ss("検索中…");
+  lastRaw=[];lastMineErr="";ss("検索中…");
   await Promise.all((tab==="all"?CATS:[tab]).map(c=>loadCat(c,more&&tab!=="all")));
   $("rawOut").value=lastRaw.join("\n\n");
   renderHits();
@@ -815,6 +824,9 @@ const VERCEL_FN=String.raw`module.exports = async (req, res) => {
     if (!id) return res.status(400).send("bad id");
     const html = await (await fetch("https://store.line.me/" + kind + "/product/" + id + "/ja", { headers })).text();
     const dec = (x) => x.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+    const metas = html.match(/<meta\b[^>]*>/g) || [];
+    const metaContent = (key) => { for (const t of metas) { if (new RegExp('(?:property|name)="' + key + '"', "i").test(t)) { const c = t.match(/\bcontent="([^"]*)"/); if (c) return dec(c[1]); } } return ""; };
+    const description = metaContent("og:description") || metaContent("description");
     const am = html.match(/\/(?:stickershop|emojishop|themeshop)\/author\/(\d+)\/ja[^>]*>\s*([^<]+?)\s*</);
     const iRel = html.search(/>\s*関連(スタンプ|絵文字)\s*</);
     const iOth = html.search(/>[^<]*の他の作品\s*</);
@@ -833,7 +845,7 @@ const VERCEL_FN=String.raw`module.exports = async (req, res) => {
     const others = iOth >= 0 ? parse(html.slice(iOth, iRel > iOth ? iRel : undefined)) : [];
     const related = iRel >= 0 ? parse(html.slice(iRel)) : [];
     res.setHeader("Content-Type", "application/json");
-    return res.status(200).send(JSON.stringify({ id, kind: emoji ? "emoji" : "sticker", author: am ? { id: am[1], name: dec(am[2]) } : null, others, related }));
+    return res.status(200).send(JSON.stringify({ id, kind: emoji ? "emoji" : "sticker", description, author: am ? { id: am[1], name: dec(am[2]) } : null, others, related }));
   }
   if (!["sticker", "emoji", "theme", "family"].includes(cat)) return res.status(404).send("not found");
   const r = await fetch("https://store.line.me/api/search/" + cat + u.search, { headers });
@@ -858,7 +870,7 @@ async function diag(){
         try{j=JSON.parse(txt)}catch(e){lines.push(`[${name}] ${t}: HTTP ${r.status} JSON以外: ${txt.slice(0,80)}`);continue}
         const it=Array.isArray(j.items)?j.items:[];
         lines.push(`[${name}] ${t}: HTTP ${r.status} 件数=${j.totalCount} 価格例=${(it[0]||{}).priceString||"-"} 先頭=${it.slice(0,3).map(x=>titleOf(x)).join(" / ")}`);
-      }catch(e){lines.push(`[${name}] ${t}: ${e.message}`)}
+      }catch(e){lines.push(`[${name==="自分用の中継"?name+" "+proxyUrl():name}] ${t}: ${e.message}${name==="自分用の中継"&&e instanceof TypeError?await reach(mk(t)):""}`)}
     }
   }
   $("rawOut").value=lines.join("\n");openAdv("rawDetails");
@@ -866,7 +878,7 @@ async function diag(){
 }
 $("diagBtn").onclick=diag;
 $("advLink").onclick=e=>{e.preventDefault();openAdv()};
-$("advOpen").onclick=()=>openAdv();$("gearBtn").onclick=()=>openAdv();
+$("advOpen").onclick=()=>openAdv();
 $("advClose").onclick=()=>$("advSheet").classList.add("hidden");$("advSheet").onclick=e=>{if(e.target===$("advSheet"))$("advSheet").classList.add("hidden")};
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 document.querySelectorAll("#libTabs button").forEach(b=>b.onclick=()=>setLib(b.dataset.lib));
